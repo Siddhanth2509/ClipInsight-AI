@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import UploadCard from '@/components/UploadCard';
 import AnalysisProgress from '@/components/AnalysisProgress';
 import ResultsDashboard from '@/components/ResultsDashboard';
+import BatchAnalysis from '@/components/BatchAnalysis';
+import HistoryPanel, { saveToHistory } from '@/components/HistoryPanel';
 
 const SakuraScene = lazy(() => import('@/components/ThreeBackground'));
 
@@ -41,9 +43,11 @@ const FEATURES = [
 ];
 
 export default function Home() {
-  const [appState, setAppState] = useState<AppState>('hero');
-  const [jobId,    setJobId]    = useState('');
-  const [result,   setResult]   = useState<any>(null);
+  const [appState,    setAppState]    = useState<AppState>('hero');
+  const [jobId,       setJobId]       = useState('');
+  const [result,      setResult]      = useState<any>(null);
+  const [showBatch,   setShowBatch]   = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const cursorDotRef  = useRef<HTMLDivElement>(null);
   const cursorRingRef = useRef<HTMLDivElement>(null);
 
@@ -108,7 +112,12 @@ export default function Home() {
   }, [appState]);
 
   const handleJobCreated = (id: string) => { setJobId(id); setAppState('analyzing'); };
-  const handleComplete   = (data: any)  => { setResult(data); setAppState('results'); };
+  const handleComplete   = (data: any)  => {
+    setResult(data);
+    setAppState('results');
+    // Auto-save to localStorage history
+    saveToHistory(data, jobId);
+  };
   const handleReset      = ()           => { setJobId(''); setResult(null); setAppState('hero'); };
 
   return (
@@ -164,6 +173,38 @@ export default function Home() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Batch comparison button */}
+                  <button
+                    onClick={() => setShowBatch(true)}
+                    style={{
+                      padding: '7px 16px', borderRadius: 10, fontSize: '0.78rem',
+                      fontWeight: 600, cursor: 'pointer',
+                      background: 'rgba(255,183,197,0.08)',
+                      border: '1px solid rgba(255,183,197,0.2)',
+                      color: 'var(--sakura-blush, #FFB7C5)',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,133,162,0.15)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,183,197,0.08)'; }}
+                  >
+                    ⚡ Compare
+                  </button>
+                  {/* History button */}
+                  <button
+                    onClick={() => setShowHistory(true)}
+                    style={{
+                      padding: '7px 16px', borderRadius: 10, fontSize: '0.78rem',
+                      fontWeight: 600, cursor: 'pointer',
+                      background: 'rgba(255,183,197,0.08)',
+                      border: '1px solid rgba(255,183,197,0.2)',
+                      color: 'var(--sakura-blush, #FFB7C5)',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,133,162,0.15)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,183,197,0.08)'; }}
+                  >
+                    📜 History
+                  </button>
                   <span style={{
                     padding: '5px 14px', borderRadius: 100, fontSize: '0.7rem',
                     fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -440,6 +481,19 @@ export default function Home() {
 
         </AnimatePresence>
       </div>
+
+      {/* ── Phase 4: Batch Comparison modal ────────────────────────────── */}
+      {showBatch && <BatchAnalysis onClose={() => setShowBatch(false)} />}
+
+      {/* ── Phase 4: History Panel (slide-in from right) ──────────────── */}
+      <HistoryPanel
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onReplay={(id) => {
+          setShowHistory(false);
+          // For now just close — future: fetch cached result by jobId
+        }}
+      />
     </>
   );
 }

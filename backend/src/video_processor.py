@@ -109,6 +109,8 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
         "windowsfilenames":              True,   # strip illegal chars
         "writethumbnail":                False,
         "writeinfojson":                 False,
+        "getcomments":                   True,   # extract comments for context clues
+        "max_comments":                  30,     # cap at 30 top comments
         "http_headers": {
             "Accept-Language": "en-US,en;q=0.9",
             "User-Agent": (
@@ -199,7 +201,34 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(url, download=True)
+            if progress_callback:
+                progress_callback("Extracting video metadata and user comments…")
+            info = ydl.extract_info(url, download=True)
+
+            # ── Save metadata & comments to info.json ───────────────────────
+            metadata = {
+                "title": info.get("title", ""),
+                "description": info.get("description", ""),
+                "uploader": info.get("uploader", ""),
+                "comments": []
+            }
+            raw_comments = info.get("comments") or []
+            try:
+                # Sort comments by like count descending to get the most valuable comments
+                raw_comments = sorted(raw_comments, key=lambda c: c.get("like_count", 0) or 0, reverse=True)
+            except Exception:
+                pass
+
+            for rc in raw_comments[:30]:
+                metadata["comments"].append({
+                    "author": rc.get("author", rc.get("author_id", "anonymous")),
+                    "text": rc.get("text", ""),
+                    "like_count": rc.get("like_count", 0) or 0
+                })
+
+            import json as _json
+            with open(job_dir / "info.json", "w", encoding="utf-8") as f:
+                _json.dump(metadata, f, ensure_ascii=False, indent=2)
 
             # ── Find the downloaded file ──────────────────────────────────
             # Primary: clip.mp4 (most common after merge_output_format=mp4)

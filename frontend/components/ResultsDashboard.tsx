@@ -39,9 +39,16 @@ async function downloadFramesZip(frames: any[], apiUrl: string) {
 
 // ── Download summary as a formatted text report ───────────────────────────────
 function downloadSummaryReport(r: any) {
-  const music = r.music?.detected
-    ? `\n🎵 MUSIC DETECTED\n  Song:   ${r.music.song_title}\n  Artist: ${r.music.artist}\n  Album:  ${r.music.album}\n  Genre:  ${r.music.genre}`
-    : '\n🎵 MUSIC: Not detected';
+  let music = '\n🎵 MUSIC: Not detected';
+  if (r.music?.detected) {
+    const typeStr = r.music.inferred ? ' [AI Inferred]' : '';
+    music = `\n🎵 MUSIC DETECTED${typeStr}\n  Song:   ${r.music.song_title}\n  Artist: ${r.music.artist}\n  Album:  ${r.music.album}\n  Genre:  ${r.music.genre}`;
+    if (r.music.explanation) {
+      music += `\n  AI Note: ${r.music.explanation}`;
+    }
+  }
+
+  const mediaStr = r.referenced_media ? `\n🎬 REFERENCED MEDIA\n  ${r.referenced_media}\n` : '';
 
   const report = `
 ╔══════════════════════════════════════════════════════╗
@@ -58,6 +65,7 @@ function downloadSummaryReport(r: any) {
   Est. Watch:     ${r.estimated_watch_time}
   Audience:       ${r.target_audience}
 ${music}
+${mediaStr}
 
 📝 SUMMARY
 ${r.summary}
@@ -327,6 +335,24 @@ export default function ResultsDashboard({ result, jobId, onReset }: ResultsDash
                 🎯 {r.target_audience}
               </div>
             </div>
+
+            {/* Referenced Media */}
+            {r.referenced_media && (
+              <div>
+                <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12 }}>
+                  🎬 Referenced Media (Movie / Series / Drama / Anime / Game)
+                </div>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10,
+                  padding: '10px 20px', borderRadius: 12,
+                  background: 'rgba(255,183,197,0.06)',
+                  border: '1px solid rgba(255,183,197,0.15)',
+                  color: 'var(--sakura-blush)', fontSize: '0.9rem', fontWeight: 500,
+                }}>
+                  ✨ {r.referenced_media}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -411,7 +437,7 @@ export default function ResultsDashboard({ result, jobId, onReset }: ResultsDash
                 {/* Song info */}
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
-                    🎵 Music Identified via Shazam
+                    {r.music.inferred ? '🌸 Music Inferred via AI Fallback' : '🎵 Music Identified via Shazam'}
                   </div>
                   <div style={{ fontSize: '1.6rem', fontFamily: 'var(--font-heading)', fontStyle: 'italic', color: 'var(--sakura-bloom)', marginBottom: 4, lineHeight: 1.2 }}>
                     {r.music.song_title}
@@ -419,6 +445,20 @@ export default function ResultsDashboard({ result, jobId, onReset }: ResultsDash
                   <div style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
                     by {r.music.artist}
                   </div>
+
+                  {r.music.inferred && (
+                    <div style={{
+                      padding: '12px 16px', borderRadius: 12, marginBottom: 16,
+                      background: 'rgba(255,183,197,0.04)',
+                      border: '1px solid rgba(255,183,197,0.12)',
+                      fontSize: '0.85rem', lineHeight: 1.6, color: 'var(--text-secondary)'
+                    }}>
+                      <div style={{ fontWeight: 600, color: 'var(--sakura-blush)', marginBottom: 4, fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                        AI CONFIDENCE: {Math.round((r.music.confidence || 0) * 100)}%
+                      </div>
+                      <span style={{ fontStyle: 'italic' }}>"{r.music.explanation}"</span>
+                    </div>
+                  )}
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {r.music.album && (

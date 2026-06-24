@@ -219,6 +219,17 @@ async def _run_pipeline(job_id: str):
     video_path = Path(jobs[job_id]["video_path"])
 
     try:
+        # Load info.json if it exists (contains title, description, and user comments)
+        info_path = video_path.parent / "info.json"
+        metadata = {}
+        if info_path.exists():
+            import json as _json
+            try:
+                with open(info_path, "r", encoding="utf-8") as f:
+                    metadata = _json.load(f)
+            except Exception as e:
+                print(f"[WARN] Failed to load info.json: {e}")
+
         # ── Stage 1: Frame Extraction ─────────────────────────────────────────
         jobs[job_id]["status"] = "extracting"
         _log(job_id, "[1/4] Extracting key frames with OpenCV...")
@@ -254,7 +265,8 @@ async def _run_pipeline(job_id: str):
         def _analyze():
             return analyze_video(
                 frames, transcript_data, duration,
-                progress_callback=lambda m: _log(job_id, m)
+                progress_callback=lambda m: _log(job_id, m),
+                metadata=metadata
             )
 
         result = await loop.run_in_executor(None, _analyze)
@@ -276,7 +288,26 @@ async def _run_pipeline(job_id: str):
         if music_result.get("detected"):
             _log(job_id, f"Music: '{music_result['song_title']}' by {music_result['artist']}")
         else:
-            _log(job_id, f"Music: {music_result.get('reason', 'Not detected')}")
+            # Fallback to AI-inferred music from comments or context
+            inf = result.get("inferred_music")
+            if inf and inf.get("song_title"):
+                music_result = {
+                    "detected": True,
+                    "inferred": True,  # Flag to indicate it was inferred by AI
+                    "song_title": inf.get("song_title"),
+                    "artist": inf.get("artist") or "Unknown",
+                    "album": "Inferred from comments/content",
+                    "label": "AI Inference Fallback",
+                    "genre": "Inferred",
+                    "cover_url": "",
+                    "apple_music_url": "",
+                    "confidence": inf.get("confidence", 0.0),
+                    "explanation": inf.get("explanation", "")
+                }
+                result["music"] = music_result
+                _log(job_id, f"Music (AI Inferred): '{music_result['song_title']}' by {music_result['artist']}")
+            else:
+                _log(job_id, f"Music: {music_result.get('reason', 'Not detected')}")
 
         # ── Store completed result ─────────────────────────────────────────────
         jobs[job_id]["status"] = "done"

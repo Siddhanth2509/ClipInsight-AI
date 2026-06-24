@@ -81,6 +81,13 @@ MAX_FRAMES_TO_SEND = 15
 #      • Raises ValidationError with clear messages if something is wrong
 #      • Provides default values for optional/missing fields
 
+class InferredMusic(BaseModel):
+    """Fallback music prediction details."""
+    song_title: Optional[str] = Field(default=None, description="Inferred song title or music genre, null if not inferred.")
+    artist: Optional[str] = Field(default=None, description="Inferred artist or producer, null if not inferred.")
+    confidence: float = Field(default=0.0, description="Confidence of the inference from 0.0 to 1.0.")
+    explanation: Optional[str] = Field(default=None, description="Explanation of how the music was inferred from comments or context.")
+
 class VideoAnalysis(BaseModel):
     """Structured output schema for AI video analysis."""
 
@@ -128,6 +135,14 @@ class VideoAnalysis(BaseModel):
         default="Unknown",
         description="Estimated % of viewers who'd watch to the end."
     )
+    referenced_media: Optional[str] = Field(
+        default=None,
+        description="The movie, series, drama, anime, game, creator, or celebrity this video is about. Include name and brief detail if identified. Null if it is general or personal content."
+    )
+    inferred_music: Optional[InferredMusic] = Field(
+        default=None,
+        description="Background music/song details inferred from description, title, comments, transcript, or visual style, especially useful if Shazam fails."
+    )
 
     # 📚 Field validators — extra business logic on top of type checking
     @field_validator("hook_score")
@@ -174,39 +189,38 @@ def _load_frame_as_base64(frame_path: Path) -> Optional[dict]:
     }
 
 
-def _build_prompt(transcript: str, frame_count: int, duration: float) -> str:
+def _build_prompt(transcript: str, frame_count: int, duration: float, metadata: Optional[dict] = None) -> str:
     """
     Build the structured prompt that instructs Gemini exactly what to return.
-
-    📚 PROMPT ENGINEERING PRINCIPLES USED HERE:
-       1. ROLE ASSIGNMENT: "You are an expert video analyst..."
-          → Primes the model's response distribution toward expert language.
-
-       2. CONTEXT FIRST: Give all the facts before asking questions.
-          → Gemini reads the entire prompt before generating. Front-loading
-            context leads to better-grounded responses.
-
-       3. EXPLICIT FORMAT REQUIREMENT: "Return ONLY valid JSON..."
-          → Reduces hallucination of markdown code blocks or prose.
-
-       4. SCHEMA IN PROMPT: Paste the exact JSON structure you expect.
-          → The model sees the schema and "patterns matches" it.
-
-       5. FEW-SHOT CONSTRAINTS: "hook_score: integer 0-100"
-          → Explicit constraints reduce out-of-range values.
     """
     transcript_section = (
         f"TRANSCRIPT:\n{transcript}" if transcript
         else "TRANSCRIPT: [No audio track detected in this video]"
     )
 
+    metadata_section = ""
+    if metadata:
+        metadata_section += "VIDEO METADATA:\n"
+        metadata_section += f"Title: {metadata.get('title', '')}\n"
+        metadata_section += f"Description: {metadata.get('description', '')}\n"
+        metadata_section += f"Uploader: {metadata.get('uploader', '')}\n\n"
+
+        comments = metadata.get("comments") or []
+        if comments:
+            metadata_section += "USER COMMENTS (clues for referenced media and background music):\n"
+            for c in comments:
+                metadata_section += f"- {c.get('author', 'anonymous')}: {c.get('text', '')}\n"
+            metadata_section += "\n"
+
     return f"""You are an expert social media video analyst specializing in short-form content
 (Instagram Reels, YouTube Shorts, TikTok). You have access to {frame_count} sampled frames
 from a {duration:.0f}-second video, plus its transcript.
 
+{metadata_section}
+
 {transcript_section}
 
-Analyze the video holistically — combining visual content from the frames AND the spoken words.
+Analyze the video holistically — combining visual content from the frames, spoken words (transcript), and context from the video metadata & user comments if available.
 Return ONLY a valid JSON object with exactly this structure (no markdown, no code blocks,
 no explanations — raw JSON only):
 
@@ -225,11 +239,18 @@ no explanations — raw JSON only):
     "<specific actionable improvement 3>"
   ],
   "content_category": "<one of: Education, Entertainment, Comedy, Lifestyle, Tech, Fashion, Food, Fitness, Business, Other>",
-  "estimated_watch_time": "<estimated % of viewers who watch to end, e.g. '65%'>"
+  "estimated_watch_time": "<estimated % of viewers who watch to end, e.g. '65%'>",
+  "referenced_media": "<the movie, series, drama, anime, game, or creator/celebrity this video is about. Set to null if it's general or personal content>",
+  "inferred_music": {{
+    "song_title": "<the song/music title if inferred from comments or context. Use comment clues (especially if they mention phonk, beats, or speeded/slowed versions of a song). Set to null if not identified>",
+    "artist": "<the artist/producer of the inferred song, or null>",
+    "confidence": <float 0.0 to 1.0 indicating your confidence in this inference>,
+    "explanation": "<brief explanation of how you inferred the music from comments or video/audio clues, or null>"
+  }}
 }}
 
-Be specific and concrete. Avoid vague statements like "the video is engaging."
-Instead say "The hook uses a question ('Did you know...') which increases curiosity gap."
+Be specific and concrete. Avoid vague statements.
+If comments mention "song?", "music?", "what is the song", etc., look at the replies or comments to identify the music. If comments mention it is a slowed, reverbed, or phonk edit of a specific song, detail that in the inferred_music.explanation and inferred_music.song_title.
 """
 
 
@@ -237,7 +258,8 @@ def analyze_video(
     frames: List[dict],
     transcript_data: dict,
     duration_seconds: float,
-    progress_callback=None
+    progress_callback=None,
+    metadata: Optional[dict] = None
 ) -> dict:
     """
     Send frames + transcript to Gemini 2.0 Flash and return structured analysis.
@@ -247,6 +269,7 @@ def analyze_video(
         transcript_data:  Dict from transcriber.transcribe_video()
         duration_seconds: Video duration in seconds
         progress_callback: Optional callable(str) for live status updates
+        metadata:          Optional video metadata (title, description, comments)
 
     Returns:
         Full analysis dict (VideoAnalysis fields + frame/transcript metadata)
@@ -289,7 +312,7 @@ def analyze_video(
 
     # Add the text prompt (comes AFTER images — models attend to it last)
     transcript_text = transcript_data.get("full_text", "")
-    prompt = _build_prompt(transcript_text, len(frames_to_send), duration_seconds)
+    prompt = _build_prompt(transcript_text, len(frames_to_send), duration_seconds, metadata=metadata)
     content_parts.append(genai_types.Part.from_text(text=prompt))
 
     # ── Call the API ──────────────────────────────────────────────────────────
@@ -360,6 +383,8 @@ def _demo_analysis(frames: list, transcript_data: dict, duration: float) -> dict
         ],
         "content_category": "General",
         "estimated_watch_time": "~65%",
+        "referenced_media": None,
+        "inferred_music": None,
         "duration_seconds":  round(duration, 1),
         "frame_count":       len(frames),
         "word_count":        transcript_data.get("word_count", 0),

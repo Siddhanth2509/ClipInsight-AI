@@ -160,6 +160,13 @@ def generate_pdf_report(result: dict) -> bytes:
     story.append(Paragraph(result.get("summary", ""), body))
     story.append(Spacer(1, 8))
 
+    # ── Referenced Media ──────────────────────────────────────────────────────
+    ref_media = result.get("referenced_media")
+    if ref_media:
+        story.append(Paragraph("REFERENCED MEDIA", label_s))
+        story.append(Paragraph(ref_media, body))
+        story.append(Spacer(1, 8))
+
     # ── Target Audience ───────────────────────────────────────────────────────
     story.append(Paragraph("TARGET AUDIENCE", label_s))
     story.append(Paragraph(result.get("target_audience", ""), body))
@@ -197,12 +204,16 @@ def generate_pdf_report(result: dict) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.5, color=c_blush, spaceAfter=10))
     story.append(Paragraph("Background Music", h2))
     if music.get("detected"):
+        inferred_str = " (AI Inferred)" if music.get("inferred") else ""
         story.append(Paragraph(
-            f"<b>{music.get('song_title', '')}</b>  ·  {music.get('artist', '')}", body))
+            f"<b>{music.get('song_title', '')}</b>  ·  {music.get('artist', '')}{inferred_str}", body))
         if music.get("album"):
             story.append(Paragraph(f"Album: {music['album']}", body))
         if music.get("genre"):
             story.append(Paragraph(f"Genre: {music['genre']}", body))
+        if music.get("explanation"):
+            expl_style = ParagraphStyle("Expl", fontSize=9, textColor=c_muted, fontName="Helvetica-Oblique", leading=11, spaceBefore=4)
+            story.append(Paragraph(f"AI Note: {music['explanation']}", expl_style))
     else:
         story.append(Paragraph("No music detected in this video.", body))
 

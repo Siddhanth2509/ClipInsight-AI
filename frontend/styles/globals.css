@@ -1,0 +1,809 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ClipInsight AI — Sakura Cinematic Design System
+   Inspired by: Japanese 間 (Ma) philosophy — elegant negative space
+   Palette: Midnight plum × sakura pink × morning mist white
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+:root {
+  /* Sakura Night Palette */
+  --void:          #070410;       /* Deepest dark — night sky */
+  --midnight:      #0E0820;       /* Scene background */
+  --dusk:          #1A1030;       /* Card backgrounds */
+  --twilight:      #251845;       /* Elevated surfaces */
+
+  /* Sakura Pinks */
+  --sakura-pale:   #FFE4EE;       /* Morning mist petal */
+  --sakura-blush:  #FFB7C5;       /* Classic sakura */
+  --sakura-bloom:  #FF85A2;       /* Full bloom */
+  --sakura-deep:   #E8557A;       /* Dark sakura center */
+  --sakura-crimson:#C0334D;       /* Petal shadow */
+
+  /* Accent */
+  --gold:          #C9A96E;       /* Japanese gold / engawa wood */
+  --jade:          #6BA3A0;       /* Soft jade */
+  --mist:          #F0EBF4;       /* Morning mist */
+
+  /* Glass */
+  --glass-sakura:  rgba(255, 183, 197, 0.07);
+  --glass-border:  rgba(255, 183, 197, 0.16);   /* More visible borders */
+  --glass-glow:    rgba(255, 133, 162, 0.10);
+
+  /* Text */
+  --text-primary:   #FAF8FC;           /* Crisp near-white */
+  --text-secondary: #E8CDD8;           /* Readable light rose */
+  --text-muted:     #B08898;           /* Warm mauve — visible on dark bg */
+  --text-kanji:     rgba(255, 183, 197, 0.04); /* Ghost kanji — subtler */
+
+  /* Typography */
+  --font-display:  'Noto Serif JP', serif;
+  --font-heading:  'Cormorant Garamond', serif;
+  --font-body:     'DM Sans', sans-serif;
+
+  /* Shadows */
+  --shadow-sakura: 0 0 60px rgba(255, 133, 162, 0.25);
+  --shadow-card:   0 20px 80px rgba(7, 4, 16, 0.8);
+  --shadow-glow:   0 0 120px rgba(232, 85, 122, 0.15);
+
+  /* Gradients */
+  --grad-sakura:   linear-gradient(135deg, #E8557A 0%, #FFB7C5 50%, #FF85A2 100%);
+  --grad-dusk:     linear-gradient(180deg, #070410 0%, #1A1030 50%, #251845 100%);
+  --grad-bloom:    radial-gradient(ellipse at 50% 0%, rgba(255,133,162,0.3) 0%, transparent 60%);
+
+  /* Radii */
+  --r-sm:  8px;
+  --r-md:  16px;
+  --r-lg:  28px;
+  --r-xl:  48px;
+}
+
+/* ── Reset ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,133,162,0.3) transparent;
+}
+
+body {
+  background: var(--void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  cursor: none; /* Custom cursor */
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,133,162,0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,133,162,0.6); }
+
+/* ── Custom Cursor ──────────────────────────────────────────────────────────── */
+.cursor-dot {
+  position: fixed;
+  width: 8px; height: 8px;
+  background: var(--sakura-bloom);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s ease, width 0.3s ease, height 0.3s ease;
+  box-shadow: 0 0 12px var(--sakura-bloom);
+}
+
+.cursor-ring {
+  position: fixed;
+  width: 36px; height: 36px;
+  border: 1px solid rgba(255,183,197,0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: transform 0.15s ease, width 0.3s ease, height 0.3s ease, border-color 0.3s ease;
+}
+
+body:has(a:hover) .cursor-ring,
+body:has(button:hover) .cursor-ring {
+  width: 60px; height: 60px;
+  border-color: var(--sakura-bloom);
+}
+
+/* ── Three.js Canvas ────────────────────────────────────────────────────────── */
+#sakura-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── App Wrapper ────────────────────────────────────────────────────────────── */
+.app-wrapper {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Ghost Kanji Watermark ──────────────────────────────────────────────────── */
+.kanji-bg {
+  position: absolute;
+  font-family: var(--font-display);
+  font-size: clamp(140px, 28vw, 380px);
+  font-weight: 900;
+  color: var(--text-kanji);
+  pointer-events: none;
+  user-select: none;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+/* ── Glass Cards ────────────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(18, 10, 32, 0.72);  /* Darker fill — text pops */
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(32px) saturate(1.4);
+  -webkit-backdrop-filter: blur(32px) saturate(1.4);
+  box-shadow: var(--shadow-card);
+}
+
+.glass-elevated {
+  background: rgba(14, 8, 28, 0.82);   /* Strong dark fill for readability */
+  border: 1px solid rgba(255,183,197,0.18);
+  backdrop-filter: blur(40px) saturate(1.6);
+  -webkit-backdrop-filter: blur(40px) saturate(1.6);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* ── Sakura Gradient Text ───────────────────────────────────────────────────── */
+.sakura-text {
+  background: var(--grad-sakura);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gold-text {
+  background: linear-gradient(135deg, #C9A96E, #F0D9A0, #C9A96E);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Divider Line ───────────────────────────────────────────────────────────── */
+.sakura-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.sakura-divider::before,
+.sakura-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,183,197,0.25), transparent);
+}
+
+.sakura-divider span {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--sakura-blush);
+  opacity: 0.6;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────────── */
+.btn-sakura {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 36px;
+  background: var(--grad-sakura);
+  border: none;
+  border-radius: 100px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--void);
+  cursor: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
+  box-shadow: 0 4px 24px rgba(232,85,122,0.35);
+}
+
+.btn-sakura::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.25), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.btn-sakura:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 48px rgba(232,85,122,0.55), 0 0 80px rgba(255,133,162,0.2);
+}
+.btn-sakura:hover::before { opacity: 1; }
+.btn-sakura:active { transform: translateY(-1px) scale(1.01); }
+
+.btn-ghost-sakura {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 32px;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: 100px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: none;
+  transition: all 0.25s ease;
+}
+.btn-ghost-sakura:hover {
+  border-color: var(--sakura-blush);
+  color: var(--sakura-pale);
+  background: rgba(255,183,197,0.06);
+  box-shadow: 0 0 30px rgba(255,133,162,0.12);
+}
+
+/* ── Navbar ─────────────────────────────────────────────────────────────────── */
+.sakura-nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 20px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(5, 2, 12, 0.88);    /* Very dark nav — legible logo */
+  backdrop-filter: blur(30px);
+  border-bottom: 1px solid rgba(255,183,197,0.10);
+  transition: padding 0.3s ease;
+}
+
+/* ── Hero Section ───────────────────────────────────────────────────────────── */
+.hero-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 48px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-content {
+  text-align: center;
+  max-width: 820px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 20px;
+  background: rgba(255,183,197,0.08);
+  border: 1px solid rgba(255,183,197,0.2);
+  border-radius: 100px;
+  margin-bottom: 32px;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sakura-blush);
+}
+
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: clamp(3rem, 7.5vw, 6.5rem);
+  font-weight: 600;
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+  margin-bottom: 28px;
+  font-style: italic;
+}
+
+.hero-subtitle {
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  color: #DDBECE;                       /* Warm readable rose */
+  line-height: 1.8;
+  max-width: 560px;
+  margin: 0 auto 52px;
+  font-weight: 400;                     /* Slightly heavier for legibility */
+}
+
+/* ── Torii Decoration ───────────────────────────────────────────────────────── */
+.torii-accent {
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 60px;
+  background: linear-gradient(180deg, var(--sakura-blush), transparent);
+  border-radius: 2px;
+}
+
+/* ── Feature Pills ──────────────────────────────────────────────────────────── */
+.feature-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: rgba(255,183,197,0.04);
+  border: 1px solid rgba(255,183,197,0.1);
+  border-radius: 100px;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  transition: all 0.25s ease;
+}
+.feature-pill:hover {
+  background: rgba(255,183,197,0.08);
+  border-color: rgba(255,183,197,0.2);
+  color: var(--sakura-pale);
+}
+
+/* ── Upload Section ─────────────────────────────────────────────────────────── */
+.upload-section {
+  padding: 80px 48px 120px;
+  position: relative;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.section-label-line {
+  width: 32px; height: 1px;
+  background: var(--sakura-blush);
+}
+
+.section-label span {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #FF9AB5;                       /* Brighter label color */
+}
+
+.section-title {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+  font-style: italic;
+  margin-bottom: 12px;
+  color: var(--text-primary);           /* Ensure full white on all backgrounds */
+}
+
+/* ── Upload Card ────────────────────────────────────────────────────────────── */
+.upload-card {
+  border-radius: var(--r-lg);
+  padding: 44px;
+  max-width: 640px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--sakura-bloom), transparent);
+}
+
+/* Tab switcher */
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,183,197,0.08);
+  border-radius: var(--r-md);
+  margin-bottom: 28px;
+}
+
+.mode-tab {
+  padding: 12px;
+  border: none;
+  border-radius: calc(var(--r-md) - 4px);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: none;
+  transition: all 0.25s ease;
+}
+.mode-tab.active {
+  background: var(--grad-sakura);
+  color: var(--void);
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(232,85,122,0.3);
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed rgba(255,183,197,0.28); /* More visible dashed border */
+  border-radius: var(--r-md);
+  padding: 56px 40px;
+  text-align: center;
+  cursor: none;
+  transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,183,197,0.03);
+}
+.drop-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255,133,162,0.08) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.drop-zone:hover, .drop-zone.over {
+  border-color: var(--sakura-bloom);
+  box-shadow: 0 0 60px rgba(255,133,162,0.15), inset 0 0 40px rgba(255,133,162,0.04);
+}
+.drop-zone:hover::before, .drop-zone.over::before { opacity: 1; }
+
+.drop-icon {
+  width: 72px; height: 72px;
+  border-radius: 20px;
+  margin: 0 auto 20px;
+  background: var(--grad-sakura);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 8px 32px rgba(232,85,122,0.4);
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.drop-zone:hover .drop-icon { transform: scale(1.1) rotate(-3deg); }
+
+/* URL input */
+.url-input-sakura {
+  width: 100%;
+  padding: 14px 20px;
+  background: rgba(255,183,197,0.04);
+  border: 1px solid rgba(255,183,197,0.1);
+  border-radius: var(--r-md);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.25s ease;
+}
+.url-input-sakura::placeholder { color: var(--text-muted); }
+.url-input-sakura:focus {
+  border-color: var(--sakura-bloom);
+  box-shadow: 0 0 0 3px rgba(255,133,162,0.1), 0 0 30px rgba(255,133,162,0.1);
+  background: rgba(255,133,162,0.04);
+}
+
+/* Platform chips */
+.platform-chip {
+  padding: 5px 14px;
+  border-radius: 100px;
+  background: rgba(255,183,197,0.06);
+  border: 1px solid rgba(255,183,197,0.14);
+  font-size: 0.73rem;
+  font-weight: 500;
+  color: var(--sakura-blush);
+  letter-spacing: 0.04em;
+}
+
+/* ── Progress Section ───────────────────────────────────────────────────────── */
+.progress-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 48px;
+}
+
+.step-track {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 52px;
+  position: relative;
+}
+
+.step-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.step-line-h {
+  position: absolute;
+  top: 19px; left: 50%;
+  width: 100%; height: 1px;
+  background: rgba(255,183,197,0.1);
+  transition: background 0.5s ease;
+  z-index: 0;
+}
+.step-item.done .step-line-h {
+  background: linear-gradient(90deg, var(--sakura-bloom), var(--sakura-blush));
+}
+
+.step-dot-sakura {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,183,197,0.15);
+  background: rgba(37,24,69,0.8);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  z-index: 1;
+  transition: all 0.4s ease;
+  position: relative;
+}
+.step-item.active .step-dot-sakura {
+  border-color: var(--sakura-bloom);
+  background: rgba(232,85,122,0.15);
+  color: var(--sakura-pale);
+  box-shadow: 0 0 0 6px rgba(232,85,122,0.08), 0 0 30px rgba(232,85,122,0.35);
+  animation: step-breathe 2s ease-in-out infinite;
+}
+.step-item.done .step-dot-sakura {
+  border-color: var(--sakura-blush);
+  background: rgba(255,183,197,0.12);
+  color: var(--sakura-blush);
+}
+
+.step-name {
+  margin-top: 10px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+.step-item.active .step-name { color: var(--sakura-bloom); }
+.step-item.done .step-name { color: var(--sakura-blush); }
+
+/* ── Results ────────────────────────────────────────────────────────────────── */
+.results-section { padding: 80px 48px; max-width: 1200px; margin: 0 auto; }
+
+.results-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(255,183,197,0.04);
+  border: 1px solid rgba(255,183,197,0.1);
+  border-radius: var(--r-md);
+  width: fit-content;
+  margin-bottom: 32px;
+}
+
+.results-tab {
+  padding: 10px 22px;
+  border-radius: calc(var(--r-md) - 4px);
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #C49AAE;                       /* Readable inactive tab color */
+  cursor: none;
+  transition: all 0.25s ease;
+}
+.results-tab.active {
+  background: var(--grad-sakura);
+  color: var(--void);
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(232,85,122,0.3);
+}
+.results-tab:hover:not(.active) { color: var(--sakura-pale); background: rgba(255,183,197,0.05); }
+
+/* Stat Cards */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+
+.stat-sakura {
+  padding: 22px 24px;
+  border-radius: var(--r-md);
+  background: rgba(255,183,197,0.04);
+  border: 1px solid rgba(255,183,197,0.1);
+  backdrop-filter: blur(20px);
+  transition: all 0.25s ease;
+}
+.stat-sakura:hover {
+  background: rgba(255,183,197,0.07);
+  border-color: rgba(255,133,162,0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(232,85,122,0.1);
+}
+.stat-emoji { font-size: 1.3rem; margin-bottom: 8px; }
+.stat-lbl {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: #B89BAA; margin-bottom: 4px; /* Brighter label */
+}
+.stat-val {
+  font-family: var(--font-heading);
+  font-size: 2rem; font-weight: 600; font-style: italic;
+  background: var(--grad-sakura);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* Hook score bar */
+.hook-bar-track {
+  height: 6px; border-radius: 3px;
+  background: rgba(255,183,197,0.08);
+  overflow: hidden; margin-top: 12px;
+}
+.hook-bar-fill {
+  height: 100%; border-radius: 3px;
+  background: var(--grad-sakura);
+  box-shadow: 0 0 10px rgba(232,85,122,0.5);
+  transition: width 1.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* Shimmer */
+.shimmer {
+  background: linear-gradient(90deg,
+    rgba(255,183,197,0.02) 25%,
+    rgba(255,183,197,0.06) 50%,
+    rgba(255,183,197,0.02) 75%);
+  background-size: 400% 100%;
+  animation: shimmer-ani 2s ease infinite;
+  border-radius: 6px;
+}
+
+/* Suggestion items */
+.suggestion-item {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 14px 18px; border-radius: var(--r-md); margin-bottom: 10px;
+  background: rgba(255,183,197,0.02);
+  border: 1px solid rgba(255,183,197,0.07);
+  transition: all 0.25s ease;
+}
+.suggestion-item:hover {
+  background: rgba(255,183,197,0.05);
+  border-color: rgba(255,133,162,0.15);
+  transform: translateX(4px);
+}
+.suggestion-num {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  background: var(--grad-sakura);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700; color: var(--void);
+}
+
+/* Tag chip */
+.tag-chip {
+  padding: 5px 14px; border-radius: 100px;
+  background: rgba(255,183,197,0.08); border: 1px solid rgba(255,183,197,0.18);
+  font-size: 0.78rem; font-weight: 500; color: var(--sakura-blush);
+}
+
+/* ── Ambient Orbs ───────────────────────────────────────────────────────────── */
+.amb-orb {
+  position: fixed; border-radius: 50%;
+  filter: blur(140px); pointer-events: none; z-index: 0;
+}
+.amb-orb-1 {
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(232,85,122,0.12) 0%, transparent 70%);
+  top: -200px; right: -200px;
+  animation: orb-float 22s ease-in-out infinite alternate;
+}
+.amb-orb-2 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(255,183,197,0.08) 0%, transparent 70%);
+  bottom: 5%; left: -120px;
+  animation: orb-float 28s ease-in-out infinite alternate-reverse;
+}
+.amb-orb-3 {
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(201,169,110,0.07) 0%, transparent 70%);
+  top: 40%; right: 10%;
+  animation: orb-float 20s ease-in-out infinite alternate;
+}
+
+/* ── Live Log ───────────────────────────────────────────────────────────────── */
+.log-entry {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 14px; border-radius: 8px;
+  background: rgba(255,183,197,0.04);   /* Slightly more visible entry bg */
+  border: 1px solid rgba(255,183,197,0.06);
+  animation: slide-in 0.3s ease forwards;
+}
+.log-arrow { color: var(--sakura-bloom); flex-shrink: 0; margin-top: 1px; }
+
+/* ── Petal SVG (inline) ─────────────────────────────────────────────────────── */
+.petal-icon {
+  display: inline-block;
+  color: var(--sakura-blush);
+  filter: drop-shadow(0 0 6px var(--sakura-bloom));
+}
+
+/* ── Animations ─────────────────────────────────────────────────────────────── */
+@keyframes step-breathe {
+  0%,100% { box-shadow: 0 0 0 6px rgba(232,85,122,0.08), 0 0 30px rgba(232,85,122,0.35); }
+  50%      { box-shadow: 0 0 0 10px rgba(232,85,122,0.04), 0 0 50px rgba(232,85,122,0.55); }
+}
+
+@keyframes orb-float {
+  0%   { transform: translate(0,0) scale(1); }
+  100% { transform: translate(50px, 40px) scale(1.12); }
+}
+
+@keyframes shimmer-ani {
+  0%   { background-position: -400% 0; }
+  100% { background-position:  400% 0; }
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes petal-spin {
+  0%   { transform: rotate(0deg) scale(1); }
+  100% { transform: rotate(360deg) scale(1.05); }
+}
+
+@keyframes bloom-in {
+  0%   { opacity: 0; transform: scale(0.8) translateY(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.bloom-in { animation: bloom-in 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+/* ── Loading Petals ─────────────────────────────────────────────────────────── */
+.loading-petals {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 24px;
+}
+.loading-petal {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--grad-sakura);
+  animation: petal-bounce 1.4s ease-in-out infinite;
+}
+.loading-petal:nth-child(2) { animation-delay: 0.16s; }
+.loading-petal:nth-child(3) { animation-delay: 0.32s; }
+
+@keyframes petal-bounce {
+  0%,80%,100% { transform: scale(0.7); opacity: 0.4; }
+  40%         { transform: scale(1.1); opacity: 1; }
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sakura-nav { padding: 16px 24px; }
+  .hero-section { padding: 100px 24px 60px; }
+  .hero-title { font-size: 2.4rem; }
+  .upload-section { padding: 60px 24px 80px; }
+  .upload-card { padding: 28px 20px; }
+  .results-section { padding: 60px 24px; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+  .step-name { font-size: 0.58rem; }
+}

@@ -108,7 +108,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
           transform: 'translate(-50%,-60%)',
           fontFamily: 'var(--font-display)',
           fontSize: '10rem', fontWeight: 900, lineHeight: 1,
-          color: 'rgba(255,133,162,0.05)',
+          color: 'var(--text-kanji)',
           pointerEvents: 'none', userSelect: 'none',
           transition: 'all 0.5s ease',
         }}>
@@ -125,8 +125,8 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
                 {i < STEPS.length - 1 && (
                   <div className="step-line-h" style={{
                     background: isDone
-                      ? 'linear-gradient(90deg, #FF85A2, #FFB7C5)'
-                      : 'rgba(255,183,197,0.08)',
+                      ? 'linear-gradient(90deg, var(--sakura-bloom), var(--sakura-blush))'
+                      : 'var(--glass-border)',
                   }} />
                 )}
                 <div className="step-dot-sakura">
@@ -147,8 +147,8 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
         }}>
           <div style={{
             position: 'relative', borderRadius: 18, overflow: 'hidden',
-            border: '1px solid rgba(255,183,197,0.2)',
-            boxShadow: '0 12px 48px rgba(232,85,122,0.25)',
+            border: '1px solid var(--glass-border-bright)',
+            boxShadow: '0 12px 48px rgba(155,59,82,0.22)',
             maxWidth: 340,
           }}>
             <img
@@ -160,7 +160,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
             {/* Overlay badge */}
             <div style={{
               position: 'absolute', top: 12, left: 12,
-              background: 'rgba(232,85,122,0.85)',
+              background: 'rgba(155,59,82,0.88)',
               backdropFilter: 'blur(8px)',
               borderRadius: 8, padding: '4px 12px',
               fontSize: '0.72rem', fontWeight: 600,
@@ -171,7 +171,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
             {/* Bottom gradient */}
             <div style={{
               position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
-              background: 'linear-gradient(transparent, rgba(15,10,34,0.9))',
+              background: 'linear-gradient(transparent, var(--midnight))',
             }} />
           </div>
         </div>
@@ -180,21 +180,23 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
       {/* Live log card */}
       <div className="glass-elevated" style={{
         borderRadius: 24, padding: '28px 32px',
-        border: '1px solid rgba(255,183,197,0.12)',
+        border: '1px solid var(--glass-border)',
         position: 'relative', overflow: 'hidden',
       }}>
         {/* Top glow */}
         <div style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          background: 'linear-gradient(90deg, transparent, rgba(255,133,162,0.4), transparent)',
+          background: 'linear-gradient(90deg, transparent, var(--sakura-bloom), transparent)',
+          opacity: 0.4,
         }} />
 
         {/* Status indicator row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <div style={{
             width: 10, height: 10, borderRadius: '50%',
-            background: error ? '#f87171' : currentStep === 'done' ? '#86efac' : '#FF85A2',
-            boxShadow: `0 0 12px ${error ? '#f87171' : currentStep === 'done' ? '#86efac' : '#FF85A2'}`,
+            background: error ? '#f87171' : currentStep === 'done' ? '#6EE7B7' : 'var(--sakura-bloom)',
+            boxShadow: `0 0 12px ${error ? '#f87171' : currentStep === 'done' ? '#6EE7B7' : 'var(--sakura-bloom)'}`,
+            transition: 'background 0.4s ease',
             animation: !error && currentStep !== 'done' ? 'step-breathe 1.6s infinite' : 'none',
           }} />
           <span style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
@@ -263,7 +265,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
           fontStyle: 'italic', fontSize: '0.95rem',
           color: 'var(--text-muted)', lineHeight: 2,
         }}>
-          <div style={{ color: 'rgba(255,183,197,0.3)', fontSize: '1.4rem', marginBottom: 4 }}>花びら</div>
+          <div style={{ color: 'var(--glass-border-bright)', fontSize: '1.4rem', marginBottom: 4 }}>花びら</div>
           "Every frame a petal — patience blooms<br />into wisdom"
         </div>
       )}

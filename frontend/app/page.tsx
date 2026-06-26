@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, Suspense, lazy } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import UploadCard from '@/components/UploadCard';
 import AnalysisProgress from '@/components/AnalysisProgress';
 import ResultsDashboard from '@/components/ResultsDashboard';
@@ -12,25 +12,25 @@ const SakuraScene = lazy(() => import('@/components/ThreeBackground'));
 type AppState = 'hero' | 'analyzing' | 'results';
 
 /* ── Page transition variants ─────────────────────────────────────────────── */
-const sakuraVariants = {
+const sakuraVariants: Variants = {
   hidden:  { opacity: 0, y: 40, filter: 'blur(8px)' },
   visible: {
     opacity: 1, y: 0, filter: 'blur(0px)',
-    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
   },
   exit:    {
     opacity: 0, y: -30, filter: 'blur(6px)',
-    transition: { duration: 0.4, ease: [0.4, 0, 1, 1] },
+    transition: { duration: 0.4, ease: [0.4, 0, 1, 1] as [number, number, number, number] },
   },
 };
 
-const stagger = {
+const stagger: Variants = {
   visible: { transition: { staggerChildren: 0.12 } },
 };
 
-const childVariant = {
+const childVariant: Variants = {
   hidden:  { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } },
 };
 
 /* ── Feature list ─────────────────────────────────────────────────────────── */

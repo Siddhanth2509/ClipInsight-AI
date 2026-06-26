@@ -3,6 +3,26 @@ import { useState, useRef, useCallback } from 'react';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// ── Friendly error classifier ────────────────────────────────────────────────
+function classifyError(raw: string): string {
+  const r = raw.toLowerCase();
+  if (r.includes('private') || r.includes('private_video'))
+    return '🔒 This video is private. Please try a public URL.';
+  if (r.includes('login') || r.includes('sign in') || r.includes('age-restricted'))
+    return '🔐 This platform requires login to view. Try a YouTube or public Instagram URL.';
+  if (r.includes('unavailable') || r.includes('does not exist') || r.includes('deleted'))
+    return '📵 This video is unavailable or has been deleted.';
+  if (r.includes('too large') || r.includes('max') || r.includes('size'))
+    return '📦 Video is too large. Try a clip under 3 minutes.';
+  if (r.includes('unsupported') || r.includes('not supported'))
+    return '🚫 This platform isn\'t supported yet. Try Instagram, YouTube, or TikTok.';
+  if (r.includes('timeout') || r.includes('connection'))
+    return '⏱ Connection timed out. Check your internet and try again.';
+  if (r.includes('invalid url') || r.includes('no video formats'))
+    return '🔗 That URL doesn\'t point to a video. Double-check and try again.';
+  return `⚠ ${raw}`;
+}
+
 interface UploadCardProps {
   onJobCreated: (jobId: string) => void;
 }
@@ -12,6 +32,7 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
   const [activeTab, setActiveTab]     = useState<'upload' | 'url'>('upload');
   const [url, setUrl]                 = useState('');
   const [urlError, setUrlError]       = useState('');
+  const [uploadError, setUploadError] = useState('');
   const [isLoading, setIsLoading]     = useState(false);
   const [fileName, setFileName]       = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -19,6 +40,7 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
   /* ── File upload ────────────────────────────────────────────────────────── */
   const handleFile = useCallback(async (file: File) => {
     setIsLoading(true);
+    setUploadError('');
     setFileName(file.name);
     const form = new FormData();
     form.append('file', file);
@@ -28,7 +50,7 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       onJobCreated(data.job_id);
     } catch (e: any) {
-      alert(`Upload error: ${e.message}`);
+      setUploadError(classifyError(e.message));
       setFileName('');
     } finally {
       setIsLoading(false);
@@ -45,8 +67,8 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
   /* ── URL submit ─────────────────────────────────────────────────────────── */
   const handleUrl = async () => {
     setUrlError('');
-    if (!url.trim()) { setUrlError('Please enter a URL.'); return; }
-    try { new URL(url); } catch { setUrlError('Invalid URL format.'); return; }
+    if (!url.trim()) { setUrlError('Please enter a video URL.'); return; }
+    try { new URL(url); } catch { setUrlError('🔗 That doesn\'t look like a valid URL. Check and try again.'); return; }
     setIsLoading(true);
     const form = new FormData();
     form.append('url', url);
@@ -56,11 +78,12 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
       if (!res.ok) throw new Error(data.detail || 'Download failed');
       onJobCreated(data.job_id);
     } catch (e: any) {
-      setUrlError(`Error: ${e.message}`);
+      setUrlError(classifyError(e.message));
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="upload-card glass-elevated" style={{ borderRadius: 28 }}>
@@ -153,6 +176,13 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
               <span key={f} className="platform-chip">{f}</span>
             ))}
           </div>
+
+          {/* Upload error display */}
+          {uploadError && (
+            <p style={{ color: '#f87171', fontSize: '0.8rem', marginTop: 12, textAlign: 'center' }}>
+              {uploadError}
+            </p>
+          )}
         </>
       )}
 

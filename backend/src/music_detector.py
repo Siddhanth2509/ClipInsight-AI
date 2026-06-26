@@ -143,71 +143,43 @@ def _read_wav_samples(wav_path: str) -> list:
     return samples
 
 
-def _fft(x: list) -> list:
-    """
-    Simple recursive Cooley-Tukey FFT (pure Python).
-    📚 FFT converts time-domain signal → frequency-domain spectrum.
-       O(n log n) — much faster than O(n²) DFT.
-    """
-    n = len(x)
-    if n <= 1:
-        return x
-    if n % 2 != 0:
-        # Pad to next power of 2
-        n2 = 1
-        while n2 < n:
-            n2 <<= 1
-        x = x + [0] * (n2 - n)
-        n = n2
-
-    even = _fft(x[0::2])
-    odd  = _fft(x[1::2])
-    T = [complex(math.cos(-2 * math.pi * k / n), math.sin(-2 * math.pi * k / n)) * odd[k % (n // 2)]
-         for k in range(n // 2)]
-    return [even[k] + T[k] for k in range(n // 2)] + \
-           [even[k] - T[k] for k in range(n // 2)]
-
-
 def _build_signature(samples: list) -> bytes:
     """
-    Build a simplified Shazam-compatible signature from raw PCM samples.
+    Build a simplified Shazam-compatible signature from raw PCM samples using NumPy.
 
     📚 The signature is a binary blob containing:
        - Magic bytes identifying it as a Shazam signature
        - Sample rate and length metadata
        - Frequency peaks extracted from the spectrogram
-
-    We follow the RapidShazam / SongRec open-source format which is
-    binary-compatible with the Shazam API.
     """
+    import numpy as np
+
     SAMPLE_RATE = 16000
     WINDOW_SIZE = 2048
     HOP_SIZE    = 1024
 
     # Normalize samples to float [-1, 1]
-    norm = [s / 32768.0 for s in samples]
+    norm = np.array(samples, dtype=np.float32) / 32768.0
 
     # Apply Hann window and compute FFT in chunks
     peaks = []
+    # Hann window
+    hann = np.hanning(WINDOW_SIZE)
+    
     for i in range(0, len(norm) - WINDOW_SIZE, HOP_SIZE):
-        window = norm[i:i + WINDOW_SIZE]
-        # Hann window to reduce spectral leakage
-        windowed = [s * (0.5 - 0.5 * math.cos(2 * math.pi * k / (WINDOW_SIZE - 1)))
-                    for k, s in enumerate(window)]
-
-        spectrum = _fft([complex(s, 0) for s in windowed])
-        # Only need magnitude of positive frequencies
-        mags = [abs(c) for c in spectrum[:WINDOW_SIZE // 2]]
+        window = norm[i:i + WINDOW_SIZE] * hann
+        spectrum = np.fft.fft(window)
+        mags = np.abs(spectrum[:WINDOW_SIZE // 2])
 
         # Find top peak in each of 5 bands
         bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
         for lo, hi in bands:
             hi = min(hi, len(mags))
             band = mags[lo:hi]
-            if band:
-                best_i = max(range(len(band)), key=lambda x: band[x])
+            if len(band) > 0:
+                best_i = np.argmax(band)
                 freq_bin = lo + best_i
-                peaks.append(freq_bin)
+                peaks.append(int(freq_bin))
 
     if not peaks:
         return b""

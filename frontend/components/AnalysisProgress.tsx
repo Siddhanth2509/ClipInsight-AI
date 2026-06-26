@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 
 // ── Friendly error messages ────────────────────────────────────────────────────
 const ERROR_MAP: Record<string, string> = {
-  private_video:    "🔒 This video is private. Please try a public URL.",
+  private_video:    "🔒 Private video — try a public one.",
   video_unavailable:"📵 This video isn't available. It may have been deleted.",
   login_required:   "🔐 This platform requires login. Try a YouTube or public Instagram URL.",
+  video_too_long:   "⏳ This video is too long (max 3 min). Please try a shorter one.",
   too_large:        "📦 Video is too large (max 100MB). Try a shorter clip.",
   default:          "⚠ Something went wrong. Please try a different URL.",
 };
@@ -73,7 +74,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
         setMessages(data.progress || []);
 
         // Pick up thumbnail URL if backend stored it
-        if (data.thumbnail_url && !thumbnail) {
+        if (data.thumbnail_url) {
           setThumbnail(data.thumbnail_url);
         }
 
@@ -92,6 +93,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
     const id = setInterval(poll, 1500);
     poll();
     return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId, onComplete, API]);
 
   const currentIdx = STEPS.findIndex(s => s.key === currentStep);
@@ -136,6 +138,44 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
           })}
         </div>
       </div>
+
+      {/* Video Thumbnail Preview — Phase 3d */}
+      {thumbnail && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', marginBottom: 28,
+          animation: 'fadeInDown 0.5s ease',
+        }}>
+          <div style={{
+            position: 'relative', borderRadius: 18, overflow: 'hidden',
+            border: '1px solid rgba(255,183,197,0.2)',
+            boxShadow: '0 12px 48px rgba(232,85,122,0.25)',
+            maxWidth: 340,
+          }}>
+            <img
+              src={thumbnail}
+              alt="Video thumbnail"
+              style={{ width: '100%', display: 'block', objectFit: 'cover' }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            {/* Overlay badge */}
+            <div style={{
+              position: 'absolute', top: 12, left: 12,
+              background: 'rgba(232,85,122,0.85)',
+              backdropFilter: 'blur(8px)',
+              borderRadius: 8, padding: '4px 12px',
+              fontSize: '0.72rem', fontWeight: 600,
+              color: '#fff', letterSpacing: '0.08em',
+            }}>
+              🎬 ANALYZING
+            </div>
+            {/* Bottom gradient */}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
+              background: 'linear-gradient(transparent, rgba(15,10,34,0.9))',
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Live log card */}
       <div className="glass-elevated" style={{

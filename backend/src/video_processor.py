@@ -109,8 +109,8 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
         "windowsfilenames":              True,   # strip illegal chars
         "writethumbnail":                False,
         "writeinfojson":                 False,
-        "getcomments":                   True,   # extract comments for context clues
-        "max_comments":                  30,     # cap at 30 top comments
+        "getcomments":                   False,  # Extracted separately post-download for speed
+        "max_comments":                  0,      # Must be 0 when getcomments=False
         "http_headers": {
             "Accept-Language": "en-US,en;q=0.9",
             "User-Agent": (
@@ -179,6 +179,7 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
             "extractor_args": {
                 "youtube": {
                     "player_client": ["android", "web"],
+                    "max_comments": ["30", "30", "0", "0"],
                 }
             },
         }
@@ -205,27 +206,26 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
                 progress_callback("Extracting video metadata and user comments…")
             info = ydl.extract_info(url, download=True)
 
-            # ── Save metadata & comments to info.json ───────────────────────
+            # Check duration limit (max 3 minutes / 180s)
+            duration = info.get("duration", 0)
+            if duration and duration > 180:
+                # Clean up downloaded files in the job directory
+                try:
+                    for f in job_dir.glob("*"):
+                        if f.is_file():
+                            f.unlink()
+                except Exception:
+                    pass
+                raise RuntimeError("video_too_long")
+
+            # ── Save basic metadata to info.json (no comments — fetched separately) ─
             metadata = {
-                "title": info.get("title", ""),
+                "title":       info.get("title", ""),
                 "description": info.get("description", ""),
-                "uploader": info.get("uploader", ""),
-                "comments": []
+                "uploader":    info.get("uploader", ""),
+                "thumbnail":   info.get("thumbnail", ""),
+                "comments":    []   # Populated later by fetch_comments()
             }
-            raw_comments = info.get("comments") or []
-            try:
-                # Sort comments by like count descending to get the most valuable comments
-                raw_comments = sorted(raw_comments, key=lambda c: c.get("like_count", 0) or 0, reverse=True)
-            except Exception:
-                pass
-
-            for rc in raw_comments[:30]:
-                metadata["comments"].append({
-                    "author": rc.get("author", rc.get("author_id", "anonymous")),
-                    "text": rc.get("text", ""),
-                    "like_count": rc.get("like_count", 0) or 0
-                })
-
             import json as _json
             with open(job_dir / "info.json", "w", encoding="utf-8") as f:
                 _json.dump(metadata, f, ensure_ascii=False, indent=2)
@@ -264,5 +264,90 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
         if "age" in err and ("restrict" in err or "verif" in err):
             raise RuntimeError("age_restricted") from e
         raise RuntimeError(f"Download failed: {e}") from e
+    except RuntimeError as e:
+        raise e
     except Exception as e:
         raise RuntimeError(f"Video download failed: {e}") from e
+
+
+def fetch_comments(url: str, job_id: str, max_comments: int = 20, progress_callback=None) -> list:
+    """
+    Fetch top comments for a URL as a NON-BLOCKING background step.
+    Designed to run in parallel with frame extraction.
+
+    Uses a separate yt-dlp call with skip_download=True (fast — no video bytes).
+    Updates info.json in the job directory when done.
+
+    Returns list of comment dicts, or [] on failure.
+    """
+    import json as _json
+
+    platform  = detect_platform(url)
+    job_dir   = TEMP_DIR / job_id
+    info_path = job_dir / "info.json"
+
+    # Only YouTube and TikTok have reliable comment APIs via yt-dlp
+    if platform not in ("youtube", "tiktok"):
+        return []
+
+    if progress_callback:
+        progress_callback("Fetching top comments for context…")
+
+    # Hard timeout: comment fetching must not block the pipeline for more than 20 seconds.
+    # yt-dlp's own socket_timeout covers individual HTTP calls; we also rely on
+    # the asyncio thread executor timeout set in main.py (30s) as an outer guard.
+    comment_opts = {
+        "skip_download":  True,
+        "getcomments":    True,
+        "quiet":          True,
+        "no_warnings":    True,
+        "socket_timeout": 10,    # Per-request timeout (was 15)
+        "retries":        1,     # Only 1 retry to keep it snappy
+    }
+
+    if platform == "youtube":
+        comment_opts["extractor_args"] = {
+            "youtube": {
+                "player_client": ["android"],
+                "max_comments":  [str(max_comments), str(max_comments), "0", "0"],
+            }
+        }
+
+    try:
+        with yt_dlp.YoutubeDL(comment_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+
+        raw_comments = (info.get("comments") or []) if info else []
+        raw_comments = sorted(
+            raw_comments,
+            key=lambda c: c.get("like_count", 0) or 0,
+            reverse=True,
+        )
+        comments = [
+            {
+                "author":     rc.get("author", rc.get("author_id", "anonymous")),
+                "text":       rc.get("text", ""),
+                "like_count": rc.get("like_count", 0) or 0,
+            }
+            for rc in raw_comments[:max_comments]
+        ]
+
+        # Merge into existing info.json
+        if info_path.exists() and comments:
+            try:
+                with open(info_path, "r", encoding="utf-8") as f:
+                    existing = _json.load(f)
+                existing["comments"] = comments
+                with open(info_path, "w", encoding="utf-8") as f:
+                    _json.dump(existing, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
+        if progress_callback:
+            progress_callback(f"Got {len(comments)} comments for context")
+        return comments
+
+    except Exception as e:
+        if progress_callback:
+            progress_callback(f"Comments fetch skipped: {e}")
+        return []

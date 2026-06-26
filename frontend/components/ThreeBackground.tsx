@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
    ─────────────────────────────────────────────────────────────────────────
    Mouse-reactive animation:
    • When mouse moves → animation kicks in at full speed/opacity (smoothly)
-   • When mouse is idle for 2 seconds → animation fades to near-zero
+   • When mouse is idle for 25 seconds → animation fades to near-zero gently
    • Transition is always gradual (eased), never a hard cut
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -193,41 +193,47 @@ export default function SakuraScene() {
 
       // ── Mouse Parallax + Activity Tracking ────────────────────────────────
       //
-      //  animActivity:   0.0 = fully dormant, 1.0 = fully alive
-      //  targetActivity: what we're easing toward
-      //  idleTimer:      setTimeout handle — starts countdown on last move
+      //  animActivity:    0.0 = fully dormant, 1.0 = fully alive
+      //  targetActivity:  what we're easing toward
+      //  idleTimer:       setTimeout handle — starts countdown on last move
       //
       //  Behaviour:
-      //  • On mouse move   → targetActivity = 1.0, cancel idle timer,
-      //                      start new 2s idle timer
-      //  • After 2s idle   → targetActivity = 0.08 (near-zero, not fully off)
-      //  • Every frame     → animActivity lerps toward targetActivity at 2% per frame
-      //    (smooth ~50 frames to fully transition)
+      //  • On page load    → start at gentle ambient activity (0.35) for 25s
+      //  • On mouse move   → targetActivity = 1.0, restart 25s idle countdown
+      //  • After 25s idle  → targetActivity = 0.18 (gentle ambient, not off)
+      //  • Every frame     → animActivity lerps toward targetActivity
+      //    (smooth ~80 frames ≈ 1.3s at 60fps to fully transition)
       //
       const mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
-      let animActivity   = 0.0;   // current eased value
-      let targetActivity = 0.0;   // where we're heading
+      // Start with a comfortable ambient level so petals always drift softly
+      let animActivity   = 0.35;  // current eased value — starts visible
+      let targetActivity = 0.35;  // gentle ambient on page load
       let idleTimerRef: ReturnType<typeof setTimeout> | null = null;
+
+      const IDLE_TIMEOUT_MS = 25000; // 25 seconds before fading to ambient
+      const IDLE_AMBIENT    = 0.18;  // minimum "alive" activity when idle
 
       const startIdleCountdown = () => {
         if (idleTimerRef) clearTimeout(idleTimerRef);
         idleTimerRef = setTimeout(() => {
-          targetActivity = 0.08;  // fade almost to zero after 2s idle
-        }, 2000);
+          // Fade to gentle ambient after 25s of no mouse movement
+          targetActivity = IDLE_AMBIENT;
+        }, IDLE_TIMEOUT_MS);
       };
 
       const onMouseMove = (e: MouseEvent) => {
         mouse.targetX = (e.clientX / window.innerWidth - 0.5) * 2;
         mouse.targetY = -(e.clientY / window.innerHeight - 0.5) * 2;
 
-        // Wake up the animation on every mouse move
+        // Fully wake animation on every mouse move
         targetActivity = 1.0;
-        startIdleCountdown();   // restart the 2s countdown
+        startIdleCountdown(); // restart the 25s countdown
       };
 
       window.addEventListener('mousemove', onMouseMove);
 
-      // Start the first idle countdown immediately so dormant state is default
+      // Start the idle countdown immediately so ambient state kicks in after 25s
+      // without any user interaction.
       startIdleCountdown();
 
       // ── GSAP Scroll ───────────────────────────────────────────────────────
@@ -265,59 +271,78 @@ export default function SakuraScene() {
 
       // ── Animation Loop ─────────────────────────────────────────────────────
       let t = 0;
-      const posAttr = petalGeo.getAttribute('position') as THREE.BufferAttribute;
+      // Smooth camera state — separate from mouse to prevent jitter
+      let camX = 0, camY = 0;
+      const posAttr = petalGeo.getAttribute('position') as import('three').BufferAttribute;
 
       const animate = () => {
         frameId = requestAnimationFrame(animate);
 
         // ── Ease animActivity toward targetActivity ────────────────────────
-        // 0.025 lerp factor = ~40 frames to fully transition (≈0.7 seconds at 60fps)
-        animActivity += (targetActivity - animActivity) * 0.025;
+        // 0.015 lerp = ~80 frames to fully transition (≈1.3s at 60fps)
+        // This is intentionally slower than before for silky transitions.
+        animActivity += (targetActivity - animActivity) * 0.015;
 
-        // Skip heavy work when nearly dormant (< 2% active) — saves CPU
-        if (animActivity < 0.02) {
+        // Always render, even when nearly dormant — prevents black flash
+        // Only skip heavy petal updates when truly near-zero
+        if (animActivity < 0.01) {
           renderer.render(scene, camera);
           return;
         }
 
-        t += 0.008 * animActivity;  // Time slows proportionally when fading
+        // Time advances proportionally to activity — feels natural
+        t += 0.006 * (animActivity * 0.7 + 0.3); // always ticks, just slower
 
-        // Smooth mouse interpolation (parallax)
-        mouse.x += (mouse.targetX - mouse.x) * 0.05;
-        mouse.y += (mouse.targetY - mouse.y) * 0.05;
-        camera.position.x = mouse.x * 12;
-        camera.position.y += (mouse.y * 8 + (camera.position.y < -30 ? -30 : 0)) * 0.02;
+        // ── Smooth camera (anti-jitter) ──────────────────────────────────
+        // Use separate smoothed camX/Y — avoids the "judder" of directly
+        // applying mouse delta to camera position each frame.
+        const targetCamX = mouse.x * 12;
+        const targetCamY = mouse.y * 8;
+        camX += (targetCamX - camX) * 0.03; // very smooth — 0.03 = ~30 frames lag
+        camY += (targetCamY - camY) * 0.03;
+
+        // Smooth mouse cursor position (parallax target)
+        mouse.x += (mouse.targetX - mouse.x) * 0.04;
+        mouse.y += (mouse.targetY - mouse.y) * 0.04;
+
+        camera.position.x = camX;
+        camera.position.y = camY;
         camera.lookAt(0, 0, 0);
 
-        // Update petal positions
-        const speed = scrollState.speed * animActivity;
+        // ── Update petal positions ────────────────────────────────────────
+        // Petals always drift gently even at ambient activity
+        const speed = scrollState.speed * Math.max(animActivity, 0.15);
+        const posArray = posAttr.array as Float32Array;
         for (let i = 0; i < PETAL_COUNT; i++) {
           const i3 = i * 3;
-          (posAttr.array as Float32Array)[i3]     += (velocities[i3]     + Math.sin(t * 0.5 + i * 0.01) * 0.015) * animActivity;
-          (posAttr.array as Float32Array)[i3 + 1] += velocities[i3 + 1] * speed;
-          (posAttr.array as Float32Array)[i3 + 2] += velocities[i3 + 2] * animActivity;
+          // Gentle horizontal drift with sine wave — no jitter
+          posArray[i3]     += (velocities[i3]     + Math.sin(t * 0.4 + i * 0.009) * 0.012) * Math.max(animActivity, 0.12);
+          posArray[i3 + 1] += velocities[i3 + 1] * speed;
+          posArray[i3 + 2] += velocities[i3 + 2] * Math.max(animActivity, 0.1);
 
-          if ((posAttr.array as Float32Array)[i3 + 1] < -100) {
-            (posAttr.array as Float32Array)[i3 + 1] = 100;
-            (posAttr.array as Float32Array)[i3]     = (Math.random() - 0.5) * 300;
+          // Recycle petals that fall below the scene
+          if (posArray[i3 + 1] < -100) {
+            posArray[i3 + 1] = 100;
+            posArray[i3]     = (Math.random() - 0.5) * 300;
           }
         }
         posAttr.needsUpdate = true;
 
-        // Scale petal opacity with activity
-        petalMat.opacity = 0.85 * animActivity;
+        // ── Petal opacity — scales with activity but always slightly visible
+        petalMat.opacity = 0.12 + 0.73 * animActivity;
 
-        // Drift lanterns
+        // ── Drift lanterns smoothly ────────────────────────────────────────
         lanterns.forEach((l, i) => {
-          l.core.position.x = l.origPos[0] + Math.sin(t * 0.3 + i) * 4;
-          l.core.position.y = l.origPos[1] + Math.cos(t * 0.25 + i * 1.3) * 3;
+          l.core.position.x = l.origPos[0] + Math.sin(t * 0.25 + i) * 4;
+          l.core.position.y = l.origPos[1] + Math.cos(t * 0.2  + i * 1.3) * 3;
           l.halo.position.copy(l.core.position);
           l.light.position.copy(l.core.position);
-          l.light.intensity = (1.5 + Math.sin(t * 0.8 + i) * 0.3) * animActivity;
+          // Light intensity always has a minimum glow — no hard flicker
+          l.light.intensity = (0.3 + 1.2 * animActivity) + Math.sin(t * 0.7 + i) * 0.2 * animActivity;
         });
 
-        // Torii slow rotation
-        toriiGroup.rotation.y = Math.sin(t * 0.08) * 0.02;
+        // ── Torii slow rotation ────────────────────────────────────────────
+        toriiGroup.rotation.y = Math.sin(t * 0.06) * 0.018;
 
         renderer.render(scene, camera);
       };

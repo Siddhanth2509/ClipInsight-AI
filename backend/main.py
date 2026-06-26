@@ -52,12 +52,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, Response
 
 from backend.src.config import TEMP_DIR
-from backend.src.video_processor  import save_uploaded_file, download_video, is_valid_url
+from backend.src.video_processor  import save_uploaded_file, download_video, is_valid_url, fetch_comments
 from backend.src.frame_extractor  import extract_frames
 from backend.src.transcriber      import transcribe_video
 from backend.src.gemini_analyzer  import analyze_video
 from backend.src.music_detector   import detect_music_from_video
 from backend.src.pdf_generator    import generate_pdf_report
+from backend.src import ai_router
 
 # ── App initialization ────────────────────────────────────────────────────────
 app = FastAPI(
@@ -98,6 +99,7 @@ def _new_job() -> str:
         "error":         None,
         "video_path":    None,
         "thumbnail_url": None,   # Video thumbnail shown during analysis
+        "source_url":    None,   # Original URL (for comment fetching)
     }
     return job_id
 
@@ -151,7 +153,8 @@ async def analyze_url(url: str = Form(...)):
         raise HTTPException(status_code=400, detail="Invalid URL.")
 
     job_id = _new_job()
-    jobs[job_id]["status"] = "downloading"
+    jobs[job_id]["status"]     = "downloading"
+    jobs[job_id]["source_url"] = url   # Store for parallel comment fetching
     _log(job_id, f"Starting download: {url[:60]}…")
 
     loop = asyncio.get_event_loop()
@@ -171,6 +174,19 @@ async def analyze_url(url: str = Form(...)):
         if yt_match:
             vid_id = yt_match.group(1)
             jobs[job_id]["thumbnail_url"] = f"https://img.youtube.com/vi/{vid_id}/hqdefault.jpg"
+
+        # Fallback to info.json thumbnail if YouTube regex doesn't match
+        if not jobs[job_id].get("thumbnail_url") and video_path:
+            info_path = video_path.parent / "info.json"
+            if info_path.exists():
+                import json as _json
+                try:
+                    with open(info_path, "r", encoding="utf-8") as f:
+                        meta = _json.load(f)
+                        if meta.get("thumbnail"):
+                            jobs[job_id]["thumbnail_url"] = meta["thumbnail"]
+                except Exception as e:
+                    print(f"[WARN] Failed to read thumbnail from info.json: {e}")
 
         _log(job_id, "Download complete.")
     except Exception as e:
@@ -230,9 +246,9 @@ async def _run_pipeline(job_id: str):
             except Exception as e:
                 print(f"[WARN] Failed to load info.json: {e}")
 
-        # ── Stage 1: Frame Extraction ─────────────────────────────────────────
+        # ── Stage 1: Frame Extraction + Comment Fetch (parallel) ─────────────
         jobs[job_id]["status"] = "extracting"
-        _log(job_id, "[1/4] Extracting key frames with OpenCV...")
+        _log(job_id, "[1/4] Extracting key frames & fetching comments in parallel...")
 
         def _extract():
             return extract_frames(
@@ -240,8 +256,38 @@ async def _run_pipeline(job_id: str):
                 progress_callback=lambda m: _log(job_id, m)
             )
 
-        frames = await loop.run_in_executor(None, _extract)
+        # Fetch comments in parallel with frame extraction (non-blocking for speed)
+        # We need the original URL — store it in the job if present
+        url_for_comments = jobs[job_id].get("source_url", "")
+
+        def _fetch_comments():
+            if url_for_comments:
+                return fetch_comments(
+                    url_for_comments, job_id,
+                    max_comments=20,
+                    progress_callback=lambda m: _log(job_id, m)
+                )
+            return []
+
+        # Run frame extraction and comment fetching in parallel.
+        # Comment fetch has a hard 25s asyncio timeout — if yt-dlp hangs, we
+        # continue with analysis (comments are context, not critical path).
+        async def _fetch_comments_with_timeout():
+            try:
+                return await asyncio.wait_for(
+                    loop.run_in_executor(None, _fetch_comments),
+                    timeout=25.0,
+                )
+            except asyncio.TimeoutError:
+                _log(job_id, "Comment fetch timed out — continuing without comments")
+                return []
+
+        frames, _ = await asyncio.gather(
+            loop.run_in_executor(None, _extract),
+            _fetch_comments_with_timeout(),
+        )
         _log(job_id, f"Done: {len(frames)} frames extracted")
+
 
         # ── Stage 2: Audio Transcription ──────────────────────────────────────
         jobs[job_id]["status"] = "transcribing"
@@ -258,7 +304,16 @@ async def _run_pipeline(job_id: str):
 
         # ── Stage 3: Gemini Vision Analysis ───────────────────────────────────
         jobs[job_id]["status"] = "analyzing"
-        _log(job_id, "[3/4] Running Gemini vision analysis...")
+        _log(job_id, "[3/4] Running Gemini 2.0 vision analysis...")
+
+        # Reload metadata now — comments may have been fetched in parallel
+        if info_path.exists():
+            import json as _json
+            try:
+                with open(info_path, "r", encoding="utf-8") as f:
+                    metadata = _json.load(f)
+            except Exception:
+                pass
 
         duration = transcript_data.get("duration", 0.0) or (len(frames) * 2.0)
 
@@ -271,6 +326,19 @@ async def _run_pipeline(job_id: str):
 
         result = await loop.run_in_executor(None, _analyze)
         _log(job_id, f"Gemini done: Hook {result.get('hook_score')}/100")
+
+        # ── Sakana Fugu: Text Enhancement (runs after Gemini vision) ──────────
+        # Sakana handles pure-text reasoning (no images) — much faster.
+        # Enhances suggestions, hook_analysis, and target_audience.
+        def _enhance():
+            return ai_router.enhance_analysis_with_text_ai(
+                result,
+                transcript=transcript_data.get("full_text", ""),
+                metadata=metadata,
+                progress_callback=lambda m: _log(job_id, m),
+            )
+
+        result = await loop.run_in_executor(None, _enhance)
 
         # ── Stage 4: Music Detection via Shazam fingerprinting ────────────────
         jobs[job_id]["status"] = "detecting_music"
@@ -288,26 +356,48 @@ async def _run_pipeline(job_id: str):
         if music_result.get("detected"):
             _log(job_id, f"Music: '{music_result['song_title']}' by {music_result['artist']}")
         else:
-            # Fallback to AI-inferred music from comments or context
+            # Fallback 1: Check Gemini-inferred music from context
             inf = result.get("inferred_music")
             if inf and inf.get("song_title"):
                 music_result = {
-                    "detected": True,
-                    "inferred": True,  # Flag to indicate it was inferred by AI
+                    "detected": True, "inferred": True,
                     "song_title": inf.get("song_title"),
-                    "artist": inf.get("artist") or "Unknown",
-                    "album": "Inferred from comments/content",
-                    "label": "AI Inference Fallback",
-                    "genre": "Inferred",
-                    "cover_url": "",
+                    "artist":     inf.get("artist") or "Unknown",
+                    "album":      "Inferred from comments/content",
+                    "label":      "AI Inference Fallback",
+                    "genre":      "Inferred", "cover_url": "",
                     "apple_music_url": "",
                     "confidence": inf.get("confidence", 0.0),
                     "explanation": inf.get("explanation", "")
                 }
                 result["music"] = music_result
-                _log(job_id, f"Music (AI Inferred): '{music_result['song_title']}' by {music_result['artist']}")
+                _log(job_id, f"Music (Gemini Inferred): '{music_result['song_title']}'")
             else:
-                _log(job_id, f"Music: {music_result.get('reason', 'Not detected')}")
+                # Fallback 2: Ask Sakana Fugu to infer from transcript + comments
+                def _infer_music():
+                    return ai_router.infer_music_with_text_ai(
+                        transcript=transcript_data.get("full_text", ""),
+                        metadata=metadata,
+                        progress_callback=lambda m: _log(job_id, m),
+                    )
+
+                sakana_music = await loop.run_in_executor(None, _infer_music)
+                if sakana_music and sakana_music.get("song_title"):
+                    music_result = {
+                        "detected": True, "inferred": True,
+                        "song_title": sakana_music.get("song_title"),
+                        "artist":     sakana_music.get("artist") or "Unknown",
+                        "album":      "Inferred by Sakana Fugu",
+                        "label":      "Sakana AI Inference",
+                        "genre":      "Inferred", "cover_url": "",
+                        "apple_music_url": "",
+                        "confidence": sakana_music.get("confidence", 0.0),
+                        "explanation": sakana_music.get("explanation", "")
+                    }
+                    result["music"] = music_result
+                    _log(job_id, f"Music (Sakana Inferred): '{music_result['song_title']}'")
+                else:
+                    _log(job_id, f"Music: {music_result.get('reason', 'Not detected')}")
 
         # ── Store completed result ─────────────────────────────────────────────
         jobs[job_id]["status"] = "done"

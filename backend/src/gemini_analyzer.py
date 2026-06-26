@@ -70,7 +70,7 @@ def _get_client():
     return _genai_client
 
 # Maximum frames to send per API call (cost + latency balance)
-MAX_FRAMES_TO_SEND = 15
+MAX_FRAMES_TO_SEND = 10  # Reduced for speed: 10 frames is enough for short-form content
 
 
 # ── Pydantic Schema — Defines the expected AI output ─────────────────────────
@@ -178,7 +178,11 @@ def _load_frame_as_base64(frame_path: Path) -> Optional[dict]:
        Gemini's API also accepts Google Cloud Storage URIs (gs://...),
        which is better for large files. Base64 is fine for small frames.
     """
-    path = TEMP_DIR / frame_path
+    # frame_path is a relative path like "job_id/frames/frame_000.jpg"
+    # It must be joined with TEMP_DIR to get the absolute path
+    path = Path(frame_path)
+    if not path.is_absolute():
+        path = TEMP_DIR / frame_path
     if not path.exists():
         return None
     with open(path, "rb") as f:
@@ -316,10 +320,10 @@ def analyze_video(
     content_parts.append(genai_types.Part.from_text(text=prompt))
 
     # ── Call the API ──────────────────────────────────────────────────────────
-    log("Calling Gemini 3.1 Flash Lite API...")
+    log("Calling Gemini 2.0 Flash API...")
     try:
         response = client.models.generate_content(
-            model="gemini-3.1-flash-lite",
+            model="gemini-2.0-flash-lite",
             contents=content_parts,
             config=genai_types.GenerateContentConfig(
                 temperature=0.3,

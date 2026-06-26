@@ -71,11 +71,14 @@ desktop.ini
 *.log
 logs/
 
-# ─── Test & coverage ──────────────────────────────────────────────────────────
+# ─── Test & coverage ───────────────────────────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
 backend/test_*.py
+
+# ─── Content / LinkedIn folder (internal use only) ─────────────────────────────
+linkedin_content/
 
 # ─── Misc ─────────────────────────────────────────────────────────────────────
 *.bak

@@ -336,20 +336,38 @@ export default function ResultsDashboard({ result, jobId, onReset }: ResultsDash
               </div>
             </div>
 
-            {/* Referenced Media */}
-            {r.referenced_media && (
+            {/* Referenced Media — Phase 3 fix */}
+            {r.referenced_media && r.referenced_media.type && r.referenced_media.type !== 'none' && (
               <div>
                 <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12 }}>
-                  🎬 Referenced Media (Movie / Series / Drama / Anime / Game)
+                  🎬 Referenced Media
                 </div>
                 <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10,
-                  padding: '10px 20px', borderRadius: 12,
-                  background: 'rgba(255,183,197,0.06)',
-                  border: '1px solid rgba(255,183,197,0.15)',
-                  color: 'var(--sakura-blush)', fontSize: '0.9rem', fontWeight: 500,
+                  padding: '16px 20px', borderRadius: 16,
+                  background: 'rgba(255,183,197,0.05)',
+                  border: '1px solid rgba(255,183,197,0.18)',
+                  display: 'flex', flexDirection: 'column', gap: 6,
                 }}>
-                  ✨ {r.referenced_media}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{
+                      padding: '2px 10px', borderRadius: 100,
+                      background: 'rgba(232,85,122,0.15)',
+                      border: '1px solid rgba(232,85,122,0.3)',
+                      fontSize: '0.7rem', fontWeight: 700,
+                      letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: 'var(--sakura-bloom)',
+                    }}>
+                      {r.referenced_media.type}
+                    </span>
+                    <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--sakura-blush)' }}>
+                      ✨ {r.referenced_media.title}
+                    </span>
+                  </div>
+                  {r.referenced_media.description && (
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+                      {r.referenced_media.description}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

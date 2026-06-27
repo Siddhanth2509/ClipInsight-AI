@@ -1,402 +1,381 @@
 'use client';
 import { useState, useEffect, useRef, Suspense, lazy } from 'react';
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import UploadCard from '@/components/UploadCard';
 import AnalysisProgress from '@/components/AnalysisProgress';
 import ResultsDashboard from '@/components/ResultsDashboard';
-import BatchAnalysis from '@/components/BatchAnalysis';
 import HistoryPanel, { saveToHistory } from '@/components/HistoryPanel';
+import PipelineAnimation from '@/components/PipelineAnimation';
 
-const SakuraScene   = lazy(() => import('@/components/ThreeBackground'));
-const NodeNetwork   = lazy(() => import('@/components/NodeNetwork'));
+const NodeNetwork = lazy(() => import('@/components/NodeNetwork'));
 
 type AppState = 'hero' | 'analyzing' | 'results';
-type Theme = 'dark' | 'light';
 
-const pageVariants: Variants = {
-  hidden:  { opacity: 0, y: 28, filter: 'blur(10px)' },
-  visible: { opacity: 1, y: 0,  filter: 'blur(0px)',  transition: { duration: 0.85, ease: [0.22, 1, 0.36, 1] as any } },
-  exit:    { opacity: 0, y: -18, filter: 'blur(6px)', transition: { duration: 0.32 } },
+const fade = {
+  hidden:  { opacity: 0, y: 24, filter: 'blur(8px)' },
+  visible: { opacity: 1, y: 0,  filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.22,1,0.36,1] as any } },
+  exit:    { opacity: 0, y: -16, filter: 'blur(6px)', transition: { duration: 0.3 } },
 };
-const stagger: Variants = { visible: { transition: { staggerChildren: 0.10 } } };
-const child: Variants   = {
-  hidden:  { opacity: 0, y: 20, filter: 'blur(4px)' },
-  visible: { opacity: 1, y: 0,  filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as any } },
-};
+const stagger = { visible: { transition: { staggerChildren: 0.09 } } };
 
-const BENTO_FEATURES = [
-  {
-    icon: '&#x1F39E;', label: 'Frame Engine', title: 'Cinema-Grade\nExtraction',
-    desc: 'OpenCV samples every 3 seconds, capturing the sharpest key frames for AI analysis.',
-    stat: '60fps', statLabel: 'Precision', pingTop: '18px', pingLeft: '18px',
-  },
-  {
-    icon: '&#x1F399;', label: 'Audio AI', title: 'Whisper\nTranscription',
-    desc: 'OpenAI Whisper converts dialogue into full, timestamped text in seconds.',
-    stat: '99%', statLabel: 'Accuracy', pingTop: '18px', pingLeft: '18px',
-  },
+const CAPABILITIES = [
+  { icon: '🎞', title: 'Frame Intelligence', desc: 'OpenCV extracts key frames every 3 seconds. Vision AI reads scenes, text, and objects with cinematic precision.', stat: '60fps', statLabel: 'Processing', color: '#7C5CFC' },
+  { icon: '🎙', title: 'Speech Recognition', desc: 'OpenAI Whisper transcribes every word with timestamps — dialogue, voiceover, ambient audio.', stat: '99%', statLabel: 'Accuracy', color: '#3DD9FF' },
+  { icon: '🧠', title: 'LLM Reasoning', desc: 'Gemini 2.0 Flash synthesizes all signals into actionable insights: hook scores, sentiment arcs, audience fit.', stat: '<3s', statLabel: 'Response', color: '#57D98D' },
+  { icon: '📈', title: 'Trend Analysis', desc: 'Cross-reference your content against viral patterns. Understand why some reels explode and others don\'t.', stat: '10M+', statLabel: 'Data Points', color: '#F5C96A' },
 ];
 
-// Simple counter hook
-function useCounter(target: number, duration = 1800) {
-  const [count, setCount] = useState(0);
+const TECH_STACK = [
+  { name: 'Gemini 2.0', role: 'LLM Core',     color: '#7C5CFC' },
+  { name: 'Whisper',    role: 'Speech AI',     color: '#3DD9FF' },
+  { name: 'OpenCV',     role: 'Vision',        color: '#57D98D' },
+  { name: 'Next.js 16', role: 'Frontend',      color: '#F8FAFC' },
+  { name: 'FastAPI',    role: 'Backend',       color: '#F5C96A' },
+  { name: 'FFmpeg',     role: 'Media Engine',  color: '#9B7BFD' },
+];
+
+function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
+  const [val, setVal] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) {
-        obs.disconnect();
-        let start = 0;
-        const step = Math.ceil(target / (duration / 16));
-        const timer = setInterval(() => {
-          start = Math.min(start + step, target);
-          setCount(start);
-          if (start >= target) clearInterval(timer);
-        }, 16);
-      }
+      if (!e.isIntersecting) return;
+      obs.disconnect();
+      let n = 0;
+      const step = Math.ceil(target / 60);
+      const t = setInterval(() => {
+        n = Math.min(n + step, target);
+        setVal(n);
+        if (n >= target) clearInterval(t);
+      }, 24);
     }, { threshold: 0.5 });
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
-  }, [target, duration]);
-  return { count, ref };
-}
-
-function StatCounter({ value, label, suffix = '' }: { value: number; label: string; suffix?: string }) {
-  const { count, ref } = useCounter(value);
-  return (
-    <div ref={ref} className="stat-counter">
-      <div className="stat-counter-val">{count.toLocaleString()}{suffix}</div>
-      <div className="stat-counter-lbl">{label}</div>
-    </div>
-  );
+  }, [target]);
+  return <div ref={ref}>{val.toLocaleString()}{suffix}</div>;
 }
 
 export default function Home() {
-  const [appState,    setAppState]    = useState<AppState>('hero');
+  const [state,       setState]       = useState<AppState>('hero');
   const [jobId,       setJobId]       = useState('');
   const [result,      setResult]      = useState<any>(null);
-  const [showBatch,   setShowBatch]   = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [theme,       setTheme]       = useState<Theme>('dark');
-  const cursorDotRef  = useRef<HTMLDivElement>(null);
-  const cursorRingRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const saved = (localStorage.getItem('ci-theme') as Theme) || 'dark';
-    setTheme(saved);
-    document.documentElement.setAttribute('data-theme', saved);
-  }, []);
-
-  const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('ci-theme', next);
-  };
+  const [urlInput,    setUrlInput]    = useState('');
+  const [pipeRunning, setPipeRunning] = useState(false);
+  const dotRef  = useRef<HTMLDivElement>(null);
+  const ringRef = useRef<HTMLDivElement>(null);
 
   /* Custom cursor */
   useEffect(() => {
-    const dot  = cursorDotRef.current;
-    const ring = cursorRingRef.current;
+    const dot = dotRef.current, ring = ringRef.current;
     if (!dot || !ring) return;
-    let rafId: number;
-    let rx = 0, ry = 0, dx = 0, dy = 0, mx = 0, my = 0;
-    const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; };
+    let raf: number, rx = 0, ry = 0, dx = 0, dy = 0, mx = 0, my = 0;
+    const mv = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; };
     const loop = () => {
-      dx += (mx - dx) * 0.95; dy += (my - dy) * 0.95;
+      dx += (mx - dx) * 0.9; dy += (my - dy) * 0.9;
       dot.style.left = `${dx}px`; dot.style.top = `${dy}px`;
-      rx += (mx - rx) * 0.10;   ry += (my - ry) * 0.10;
+      rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12;
       ring.style.left = `${rx}px`; ring.style.top = `${ry}px`;
-      rafId = requestAnimationFrame(loop);
+      raf = requestAnimationFrame(loop);
     };
-    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mousemove', mv);
     loop();
-    return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(rafId); };
+    return () => { window.removeEventListener('mousemove', mv); cancelAnimationFrame(raf); };
   }, []);
 
-  const handleJobCreated = (id: string) => { setJobId(id); setAppState('analyzing'); };
-  const handleComplete   = (data: any)  => { setResult(data); setAppState('results'); saveToHistory(data, jobId); };
-  const handleReset      = ()           => { setJobId(''); setResult(null); setAppState('hero'); };
+  const startAnalysis = (id: string) => { setJobId(id); setState('analyzing'); };
+  const onComplete    = (data: any)  => { setResult(data); setState('results'); saveToHistory(data, jobId); };
+  const reset         = ()           => { setJobId(''); setResult(null); setState('hero'); setPipeRunning(false); };
 
-  const NavBar = ({ showBack }: { showBack?: boolean }) => (
-    <nav className="nav-bento">
+  const handleHeroAnalyze = () => {
+    if (!urlInput.trim()) return;
+    document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const Nav = ({ back }: { back?: boolean }) => (
+    <nav className="nav">
       <div className="nav-logo">
-        <div className="nav-logo-mark">&#x1F338;</div>
-        <div>
-          <div className="nav-logo-name">Clip<span className="sakura-text">Insight</span> AI</div>
-          <div className="nav-logo-sub">&#26716;&#12398;&#30693;&#24913;</div>
+        <div className="nav-logo-icon">✦</div>
+        <span className="nav-logo-text">Clip<span>Insight</span> AI</span>
+      </div>
+      {!back && (
+        <div className="nav-links">
+          <button className="nav-link active">Analyze</button>
+          <button className="nav-link" onClick={() => setShowHistory(true)}>History</button>
+          <button className="nav-link" onClick={() => document.getElementById('capabilities')?.scrollIntoView({ behavior: 'smooth' })}>Features</button>
+          <button className="nav-link" onClick={() => document.getElementById('tech')?.scrollIntoView({ behavior: 'smooth' })}>Stack</button>
         </div>
-      </div>
-      <div className="nav-pills">
-        {showBack ? (
-          <button className="nav-pill" onClick={handleReset}>&larr; New Analysis</button>
-        ) : (
-          <>
-            <button className="nav-pill active">Analyze</button>
-            <button className="nav-pill" onClick={() => setShowBatch(true)}>Compare</button>
-            <button className="nav-pill" onClick={() => setShowHistory(true)}>History</button>
-          </>
-        )}
-      </div>
-      <div className="nav-actions">
-        <button className="nav-theme-toggle" onClick={toggleTheme} title="Toggle theme">
-          {theme === 'dark' ? '\u2600' : '\uD83C\uDF19'}
-        </button>
-        <span className="nav-beta-badge">Beta</span>
+      )}
+      <div className="nav-cta">
+        {back
+          ? <button className="btn btn-secondary" onClick={reset} style={{ padding: '8px 18px', fontSize: '0.82rem' }}>← New Analysis</button>
+          : <span className="nav-badge">Beta · Free</span>
+        }
       </div>
     </nav>
   );
 
   return (
     <>
-      {/* ── Web3 background layers ── */}
-      <div className="grid-overlay" />
-      <div className="dot-grid-bg" />
+      {/* Background layers */}
+      <div className="bg-layer-glows">
+        <div className="bg-glow bg-glow-1" />
+        <div className="bg-glow bg-glow-2" />
+        <div className="bg-glow bg-glow-3" />
+      </div>
+      <div className="bg-grid" />
+      <div className="bg-dots" />
       <div className="scan-line" />
 
-      {/* ── Custom cursor ── */}
-      <div ref={cursorDotRef}  className="cursor-dot" />
-      <div ref={cursorRingRef} className="cursor-ring" />
-
-      {/* ── Ambient orbs ── */}
-      <div className="amb-orb amb-orb-1" />
-      <div className="amb-orb amb-orb-2" />
-      <div className="amb-orb amb-orb-3" />
-
-      {/* ── Background canvases ── */}
-      <Suspense fallback={null}>
-        <SakuraScene />
-      </Suspense>
+      {/* Node network canvas */}
       <Suspense fallback={null}>
         <NodeNetwork />
       </Suspense>
 
+      {/* Custom cursor */}
+      <div ref={dotRef}  className="cursor-dot" />
+      <div ref={ringRef} className="cursor-ring" />
+
       <AnimatePresence mode="wait">
 
         {/* ══════════ HERO ══════════ */}
-        {appState === 'hero' && (
-          <motion.div key="hero" variants={pageVariants} initial="hidden" animate="visible" exit="exit"
-            style={{ position: 'relative', zIndex: 2, minHeight: '100vh' }}>
+        {state === 'hero' && (
+          <motion.div key="hero" variants={fade} initial="hidden" animate="visible" exit="exit"
+            style={{ position: 'relative', zIndex: 2 }}>
+            <Nav />
 
-            <NavBar />
-
-            {/* Hero */}
-            <section className="hero-bento">
-              {/* Glassmorphism sphere — with expanding rings */}
-              <div className="hero-sphere" style={{ position: 'relative' }}>
-                <div className="sphere-hex-ring" />
-                <div className="sphere-hex-ring" />
-                <div className="sphere-hex-ring" />
+            <section className="hero" style={{ alignItems: 'flex-start', textAlign: 'left' }}>
+              {/* Right orb visual */}
+              <div className="hero-orb-scene" aria-hidden>
+                <div className="orb-ring" />
+                <div className="orb-ring" />
+                <div className="orb-ring" />
+                <div className="hero-orb" />
+                {/* Floating stat cards */}
+                <div className="hero-stat-float" style={{ top: '22%', left: '6%' }}>
+                  <div className="float-stat-val"><Counter target={12800} suffix="+" /></div>
+                  <div className="float-stat-lbl">Reels Analyzed</div>
+                </div>
+                <div className="hero-stat-float" style={{ bottom: '28%', left: '4%' }}>
+                  <div className="float-stat-val"><Counter target={99} suffix="%" /></div>
+                  <div className="float-stat-lbl">Accuracy</div>
+                </div>
+                <div className="hero-stat-float" style={{ top: '28%', right: '6%' }}>
+                  <div className="float-stat-val" style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.5rem', fontWeight: 800, background: 'linear-gradient(135deg,#7C5CFC,#3DD9FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>&lt;3s</div>
+                  <div className="float-stat-lbl">Avg. Analysis</div>
+                </div>
               </div>
 
-              {/* Outline Kanji */}
-              <div className="hero-kanji-right">&#26144;</div>
+              <motion.div variants={stagger} initial="hidden" animate="visible"
+                style={{ position: 'relative', zIndex: 1, maxWidth: 620, textAlign: 'left' }}>
 
-              {/* Vertical Japanese strip */}
-              <div className="hero-vertical-text">
-                &#12463;&#12522;&#12483;&#12503;&#12452;&#12531;&#12469;&#12452;&#12488;&#12539;AI&#12539;&#26144;&#20687;&#12398;&#30693;&#24913;&#12539;&#26716;&#20241;&#12367;
-              </div>
-
-              {/* Editorial headline */}
-              <motion.div className="hero-headline-wrap" variants={stagger} initial="hidden" animate="visible">
-                <motion.div variants={child}>
-                  <div className="hero-eyebrow">
-                    <div className="hero-eyebrow-dot" />
-                    Powered by Gemini 2.0 Flash &middot; &#26716;&#21056;&#12367;
+                <motion.div variants={fade}>
+                  <div className="hero-badge">
+                    <div className="hero-badge-dot" />
+                    Powered by Gemini 2.0 Flash · Now in Beta
                   </div>
                 </motion.div>
 
-                <motion.h1 className="hero-title" variants={child}>
-                  Every Frame<br />
-                  <span className="hero-title-accent">Tells a Story</span>
-                  <span className="type-cursor" />
+                <motion.h1 className="hero-title" variants={fade}>
+                  Turn Any Reel Into<br />
+                  <span className="accent-cyan">AI Intelligence</span>
                 </motion.h1>
 
-                <motion.p className="hero-sub" variants={child}>
-                  Drop any reel. ClipInsight AI extracts key frames, transcribes every word,
-                  and delivers cinematic-grade insights &mdash; in seconds.
+                <motion.p className="hero-sub" variants={fade} style={{ marginLeft: 0, marginRight: 0, textAlign: 'left' }}>
+                  Paste a YouTube Short, Instagram Reel, or TikTok link.
+                  Our multi-model AI pipeline extracts frames, transcribes speech,
+                  detects emotion, and delivers a cinematic-grade intelligence report — in seconds.
                 </motion.p>
 
-                {/* Web3-style stat counters */}
-                <motion.div variants={child} className="stat-counter-row">
-                  <StatCounter value={12847} label="Reels Analyzed" suffix="+" />
-                  <StatCounter value={99}    label="Accuracy"        suffix="%" />
-                  <StatCounter value={3}     label="Sec Avg. Time"   suffix="s" />
+                {/* Hero URL input */}
+                <motion.div variants={fade} className="hero-input-wrap">
+                  <input
+                    className="hero-input"
+                    placeholder="https://www.instagram.com/reel/..."
+                    value={urlInput}
+                    onChange={e => setUrlInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleHeroAnalyze()}
+                  />
+                  <button className="hero-input-btn" onClick={handleHeroAnalyze}>
+                    Analyze Now <span className="btn-arrow">→</span>
+                  </button>
                 </motion.div>
 
-                <motion.div className="hero-cta-row" variants={child} style={{ marginTop: 28 }}>
-                  <button className="btn-fusion"
-                    onClick={() => document.getElementById('bento')?.scrollIntoView({ behavior: 'smooth' })}>
-                    &#x1F338; Begin Analysis
-                  </button>
-                  <button className="btn-ghost">Watch Demo &#9654;</button>
+                <motion.div variants={fade} className="hero-sub-links" style={{ justifyContent: 'flex-start' }}>
+                  <span>✓ No account needed</span>
+                  <span>✓ Free to use</span>
+                  <span>✓ Results in &lt;3 seconds</span>
                 </motion.div>
               </motion.div>
             </section>
 
-            {/* ══════════ BENTO GRID ══════════ */}
-            <section id="bento" className="bento-section">
-              <div className="bento-grid">
+            {/* ══════ PIPELINE SECTION ══════ */}
+            <section style={{ position: 'relative', zIndex: 2, padding: '0 40px 80px' }}>
+              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                <div className="section-label">AI Workflow</div>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <h2 className="section-title" style={{ marginBottom: 0 }}>
+                    11-Step Intelligence Pipeline
+                  </h2>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.8rem', padding: '8px 16px' }}
+                    onClick={() => setPipeRunning(r => !r)}
+                  >
+                    {pipeRunning ? '⏹ Stop' : '▶ Preview Pipeline'}
+                  </button>
+                </div>
+                <p className="section-sub" style={{ marginBottom: 0 }}>
+                  Every analysis runs through our full model stack simultaneously.
+                </p>
+                <div className="card" style={{ marginTop: 24, padding: '8px 24px' }}>
+                  <div className="card-inner-glow" />
+                  <PipelineAnimation isRunning={pipeRunning} onComplete={() => setTimeout(() => setPipeRunning(false), 800)} />
+                </div>
+              </div>
+            </section>
 
-                {/* Main tall left card */}
-                <motion.div className="bento-card bento-main"
-                  initial={{ opacity: 0, x: -30 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}>
-                  {/* Corner dots */}
-                  <div className="bento-corner-dot tl" />
-                  <div className="bento-corner-dot tr" />
-                  <div className="bento-corner-dot bl" />
-                  <div className="bento-corner-dot br" />
-
-                  <div className="bento-main-kanji">&#35299;</div>
-                  <div>
-                    <div className="bento-brand-tag">&#x1F9E0; ClipInsight AI</div>
-                    <h2 className="bento-main-title">
-                      AI That Reads<br />
-                      Between the <span className="electric-text">Frames</span>
-                    </h2>
-                    <p className="bento-main-desc">
-                      Our multi-model pipeline combines computer vision, speech recognition,
-                      and large language models to uncover what makes a video truly work.
-                      Hook scores, sentiment arcs, audience fit &mdash; all from a single drop.
-                    </p>
+            {/* ══════ UPLOAD / ANALYZE SECTION ══════ */}
+            <section id="upload-section" style={{ position: 'relative', zIndex: 2, padding: '0 40px 96px' }}>
+              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                <div className="section-label">Start Analyzing</div>
+                <h2 className="section-title">Drop Your Content</h2>
+                <p className="section-sub" style={{ marginBottom: 40 }}>
+                  Upload a video file or paste a social media link. The AI handles everything else.
+                </p>
+                <div className="analysis-panel">
+                  <div className="data-line" />
+                  <div style={{ position: 'absolute', top: 20, right: 20 }}>
+                    <div className="node-ping" />
                   </div>
-                  <div>
-                    {/* Data line accent */}
-                    <div className="data-line" />
-                    <div style={{ fontSize: '0.65rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--tx-3)', fontFamily: 'var(--font-ui)', marginBottom: 10 }}>
-                      Pipeline
-                    </div>
-                    <div className="bento-step-dots">
-                      {['\u2B06', '\uD83C\uDF9E', '\uD83C\uDF99', '\uD83E\uDDE0', '\uD83C\uDF38'].map((icon, i) => (
-                        <div key={i} className={`bento-step-dot${i < 3 ? ' active' : ''}`} style={{ fontSize: '0.8rem' }}>
-                          {icon}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
+                  <UploadCard onJobCreated={startAnalysis} />
+                </div>
+              </div>
+            </section>
 
-                {/* Feature cards */}
-                {BENTO_FEATURES.map((feat, idx) => (
-                  <motion.div key={feat.label}
-                    className="bento-card bento-sm"
-                    style={{ gridColumn: 2, gridRow: idx + 1, position: 'relative' }}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.75, delay: idx * 0.12, ease: [0.22, 1, 0.36, 1] }}>
-                    {/* Node ping dot */}
-                    <div className="node-ping" style={{ top: feat.pingTop, left: feat.pingLeft }} />
+            {/* ══════ CAPABILITIES BENTO ══════ */}
+            <section id="capabilities" style={{ position: 'relative', zIndex: 2, padding: '0 40px 96px' }}>
+              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                <div className="section-label">AI Capabilities</div>
+                <h2 className="section-title">What the AI Reads</h2>
+                <p className="section-sub" style={{ marginBottom: 40 }}>
+                  Every frame, every word, every emotion — analyzed simultaneously.
+                </p>
 
+                {/* 2x2 + 1 wide bento */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: 'auto auto', gap: 16 }}>
+
+                  {/* Large hero card */}
+                  <motion.div className="card" style={{ gridColumn: 1, gridRow: '1 / 3', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 360 }}
+                    initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
+                    transition={{ duration: 0.8, ease: [0.22,1,0.36,1] }}>
+                    <div className="card-inner-glow" />
+                    <div className="card-corner-tl" /><div className="card-corner-br" />
                     <div>
-                      <div className="bento-sm-icon" dangerouslySetInnerHTML={{ __html: feat.icon }} />
-                      <div className="bento-sm-label">{feat.label}</div>
-                      <div className="bento-sm-title" style={{ whiteSpace: 'pre-line' }}>{feat.title}</div>
-                      <p className="bento-sm-desc">{feat.desc}</p>
+                      <div className="capability-icon" style={{ background: 'rgba(124,92,252,0.12)', borderColor: 'rgba(124,92,252,0.25)', fontSize: '1.8rem', width: 64, height: 64 }}>🧠</div>
+                      <div className="capability-title" style={{ fontSize: '1.5rem' }}>Full-Spectrum<br />Content Intelligence</div>
+                      <p className="capability-desc" style={{ marginTop: 12, fontSize: '0.95rem', lineHeight: 1.75, maxWidth: 360 }}>
+                        ClipInsight runs 11 AI models in parallel — vision, speech, emotion, music, OCR, and trend analysis — converging into a single intelligence report that tells you exactly what works and why.
+                      </p>
                     </div>
-                    <div className="bento-sm-stat">
-                      <div className="bento-sm-stat-val">{feat.stat}</div>
-                      <div className="bento-sm-stat-lbl">{feat.statLabel}</div>
+                    <div>
+                      <div className="data-line" />
+                      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                        {[{ v: '11', l: 'AI Models' }, { v: '<3s', l: 'Speed' }, { v: '99%', l: 'Accuracy' }].map(s => (
+                          <div key={s.l}>
+                            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '1.6rem', fontWeight: 800, background: 'linear-gradient(135deg, #7C5CFC, #3DD9FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{s.v}</div>
+                            <div style={{ fontSize: '0.68rem', color: 'var(--tx-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.l}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </motion.div>
-                ))}
 
-                {/* Upload card */}
-                <motion.div className="bento-card bento-upload-card"
-                  style={{ gridColumn: 3, gridRow: '1 / 3', position: 'relative' }}
-                  initial={{ opacity: 0, x: 30 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}>
-                  {/* Corner dots */}
-                  <div className="bento-corner-dot tl" />
-                  <div className="bento-corner-dot tr" />
-                  {/* Node ping */}
-                  <div className="node-ping" style={{ top: '18px', right: '18px', left: 'auto' }} />
+                  {/* Small cards */}
+                  {CAPABILITIES.slice(0,4).map((cap, i) => (
+                    <motion.div key={cap.title} className="card"
+                      style={{ gridColumn: i < 2 ? 2 : 3, gridRow: i % 2 + 1 }}
+                      initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }} transition={{ duration: 0.7, delay: i * 0.08, ease: [0.22,1,0.36,1] }}>
+                      <div className="card-inner-glow" />
+                      <div className="capability-icon" style={{ background: `${cap.color}18`, borderColor: `${cap.color}30`, marginBottom: 14 }}>{cap.icon}</div>
+                      <div className="capability-title" style={{ fontSize: '1rem' }}>{cap.title}</div>
+                      <p className="capability-desc" style={{ fontSize: '0.82rem', marginTop: 6 }}>{cap.desc}</p>
+                      <div className="stat-bar">
+                        <div className="stat-bar-val" style={{ background: `linear-gradient(135deg, ${cap.color}, #fff)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{cap.stat}</div>
+                        <div className="stat-bar-lbl">{cap.statLabel}</div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </section>
 
-                  <div className="bento-upload-header">
-                    <div className="bento-upload-icon">&#x1F338;</div>
-                    <div className="bento-upload-title">
-                      Let the <span className="sakura-text">Petals Fall</span>
-                    </div>
-                    <div className="bento-upload-sub">Upload or paste &middot; AI insights in seconds</div>
-                  </div>
-                  <div className="data-line" style={{ margin: '12px 0' }} />
-                  <UploadCard onJobCreated={handleJobCreated} />
-                </motion.div>
-
+            {/* ══════ TECH STACK ══════ */}
+            <section id="tech" style={{ position: 'relative', zIndex: 2, padding: '0 40px 96px' }}>
+              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                <div className="section-label">Technology</div>
+                <h2 className="section-title">Built on the Best</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginTop: 32 }}>
+                  {TECH_STACK.map((tech, i) => (
+                    <motion.div key={tech.name} className="card"
+                      style={{ textAlign: 'center', padding: '24px 16px' }}
+                      initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }} transition={{ delay: i * 0.06, duration: 0.6, ease: [0.22,1,0.36,1] }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: tech.color, marginBottom: 4, fontFamily: "'Syne', sans-serif" }}>{tech.name}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--tx-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{tech.role}</div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
             </section>
 
             {/* Footer */}
-            <footer style={{
-              padding: '30px 60px', marginTop: 20,
-              borderTop: '1px solid var(--gl-border)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              flexWrap: 'wrap', gap: 12, position: 'relative', zIndex: 2,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <span style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', color: 'var(--tx-2)', fontSize: '0.9rem' }}>
-                  Clip<span className="sakura-text">Insight</span> AI
-                </span>
-                <span style={{ color: 'var(--tx-3)', fontSize: '0.7rem', fontFamily: 'var(--font-ui)' }}>
-                  &#26716;&#21056;&#12367; &middot; 2025
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'var(--tx-3)', fontFamily: 'var(--font-ui)' }}>
-                <span className="electric-text" style={{ fontWeight: 600 }}>Gemini 2.0 Flash</span>
-                <span>&middot;</span>Whisper &middot; OpenCV
-              </div>
+            <footer className="footer">
+              <div className="footer-brand">Clip<span>Insight</span> AI</div>
+              <div className="footer-meta">Built with Gemini 2.0 Flash · Whisper · OpenCV · Next.js</div>
+              <div className="footer-meta">© 2025 · Beta</div>
             </footer>
           </motion.div>
         )}
 
-        {/* ══════════ ANALYZING ══════════ */}
-        {appState === 'analyzing' && (
-          <motion.div key="analyzing" variants={pageVariants} initial="hidden" animate="visible" exit="exit"
+        {/* ══════ ANALYZING ══════ */}
+        {state === 'analyzing' && (
+          <motion.div key="analyzing" variants={fade} initial="hidden" animate="visible" exit="exit"
             style={{ position: 'relative', zIndex: 2 }}>
-            <NavBar />
-            <div className="progress-section">
-              <div className="kanji-bg" style={{ top:'50%', left:'50%', transform:'translate(-50%,-50%)', opacity:0.025 }}>&#30693;</div>
-              <div style={{ maxWidth: 700, width: '100%', position: 'relative', zIndex: 1 }}>
-                <div style={{ textAlign: 'center', marginBottom: 52 }}>
-                  <div style={{
-                    width: 76, height: 76, margin: '0 auto 22px',
-                    background: 'var(--grad-fusion)', borderRadius: 22,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem',
-                    boxShadow: '0 0 50px rgba(124,58,237,0.45)',
-                    animation: 'step-breathe 3s infinite',
-                  }}>&#x1F9E0;</div>
-                  <h2 style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '2.2rem', fontWeight: 600, marginBottom: 10 }}>
-                    AI is <span className="electric-text">Awakening</span>
-                  </h2>
-                  <p style={{ color: 'var(--tx-2)', fontSize: '0.88rem', letterSpacing: '0.04em', fontFamily: 'var(--font-ui)' }}>
-                    &#30693;&#35672;&#12398;&#33457;&#12364;&#21056;&#12367; &mdash; The flower of knowledge blooms
-                  </p>
+            <Nav />
+            <section className="progress-section">
+              <div style={{ maxWidth: 680, width: '100%', textAlign: 'center' }}>
+                <div className="progress-orb">🧠</div>
+                <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>
+                  AI is <span className="gradient-text">Processing</span>
+                </h2>
+                <p style={{ color: 'var(--tx-1)', fontSize: '0.9rem', marginBottom: 40 }}>
+                  Running 11-model pipeline — vision, speech, emotion, trends, and LLM reasoning
+                </p>
+                <PipelineAnimation isRunning={true} />
+                <div style={{ marginTop: 40 }}>
+                  <AnalysisProgress jobId={jobId} onComplete={onComplete} />
                 </div>
-                <AnalysisProgress jobId={jobId} onComplete={handleComplete} />
               </div>
-            </div>
+            </section>
           </motion.div>
         )}
 
-        {/* ══════════ RESULTS ══════════ */}
-        {appState === 'results' && (
-          <motion.div key="results" variants={pageVariants} initial="hidden" animate="visible" exit="exit"
+        {/* ══════ RESULTS ══════ */}
+        {state === 'results' && (
+          <motion.div key="results" variants={fade} initial="hidden" animate="visible" exit="exit"
             style={{ position: 'relative', zIndex: 2 }}>
-            <NavBar showBack />
-            <div style={{ paddingTop: 70 }}>
-              <ResultsDashboard result={result} jobId={jobId} onReset={handleReset} />
+            <Nav back />
+            <div className="results-wrap">
+              <ResultsDashboard result={result} jobId={jobId} onReset={reset} />
             </div>
           </motion.div>
         )}
 
       </AnimatePresence>
 
-      {showBatch    && <BatchAnalysis onClose={() => setShowBatch(false)} />}
-      <HistoryPanel  isOpen={showHistory} onClose={() => setShowHistory(false)} onReplay={() => setShowHistory(false)} />
+      <HistoryPanel isOpen={showHistory} onClose={() => setShowHistory(false)} onReplay={() => setShowHistory(false)} />
     </>
   );
 }

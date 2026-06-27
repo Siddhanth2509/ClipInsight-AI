@@ -86,38 +86,7 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
 
 
   return (
-    <div className="upload-card glass-elevated" style={{ borderRadius: 28 }}>
-
-      {/* Card top shimmer line */}
-      <div style={{
-        position: 'absolute', top: 0, left: '20%', right: '20%', height: '1px',
-        background: 'linear-gradient(90deg, transparent, rgba(255,133,162,0.6), transparent)',
-      }} />
-
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <div style={{
-          width: 68, height: 68, margin: '0 auto 18px',
-          background: 'linear-gradient(135deg, #E8557A, #FFB7C5)',
-          borderRadius: 20, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: '1.9rem',
-          boxShadow: '0 8px 40px rgba(232,85,122,0.45)',
-          transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-        }}
-          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.08) rotate(-4deg)')}
-          onMouseLeave={e => (e.currentTarget.style.transform = '')}>
-          🌸
-        </div>
-        <h2 style={{
-          fontFamily: 'var(--font-heading)', fontSize: '1.75rem',
-          fontWeight: 600, fontStyle: 'italic', marginBottom: 6,
-        }}>
-          Begin Your <span className="sakura-text">Analysis</span>
-        </h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', lineHeight: 1.6 }}>
-          Upload a video or paste a link · AI insights in seconds
-        </p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
 
       {/* Tab switcher */}
       <div className="mode-tabs">
@@ -158,10 +127,10 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
               </>
             ) : (
               <>
-                <p style={{ fontWeight: 600, fontSize: '1.05rem', marginBottom: 8, position: 'relative', zIndex: 1, color: isDragOver ? 'var(--sakura-pale)' : 'var(--text-primary)' }}>
+                <p style={{ fontWeight: 600, fontSize: '1.05rem', marginBottom: 8, position: 'relative', zIndex: 1, color: isDragOver ? 'var(--s0)' : 'var(--tx-0)' }}>
                   {isDragOver ? '🌸 Release to bloom…' : 'Drag & drop your video'}
                 </p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', position: 'relative', zIndex: 1 }}>
+                <p style={{ color: 'var(--tx-2)', fontSize: '0.82rem', position: 'relative', zIndex: 1 }}>
                   or click to browse · MP4, MOV, AVI, MKV, WebM · Max 200MB
                 </p>
               </>
@@ -201,7 +170,7 @@ export default function UploadCard({ onJobCreated }: UploadCardProps) {
               style={{ paddingRight: 130 }}
             />
             <button
-              className="btn-sakura"
+              className="btn-rose"
               onClick={handleUrl}
               disabled={isLoading}
               style={{

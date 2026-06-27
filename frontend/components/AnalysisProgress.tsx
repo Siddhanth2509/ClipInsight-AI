@@ -1,14 +1,14 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 
-// ── Friendly error messages ────────────────────────────────────────────────────
+// â”€â”€ Friendly error messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const ERROR_MAP: Record<string, string> = {
-  private_video:    "🔒 Private video — try a public one.",
-  video_unavailable:"📵 This video isn't available. It may have been deleted.",
-  login_required:   "🔐 This platform requires login. Try a YouTube or public Instagram URL.",
-  video_too_long:   "⏳ This video is too long (max 3 min). Please try a shorter one.",
-  too_large:        "📦 Video is too large (max 100MB). Try a shorter clip.",
-  default:          "⚠ Something went wrong. Please try a different URL.",
+  private_video:    "ðŸ”’ Private video â€” try a public one.",
+  video_unavailable:"ðŸ“µ This video isn't available. It may have been deleted.",
+  login_required:   "ðŸ” This platform requires login. Try a YouTube or public Instagram URL.",
+  video_too_long:   "â³ This video is too long (max 3 min). Please try a shorter one.",
+  too_large:        "ðŸ“¦ Video is too large (max 100MB). Try a shorter clip.",
+  default:          "âš  Something went wrong. Please try a different URL.",
 };
 
 function getFriendlyError(raw: string): string {
@@ -19,12 +19,12 @@ function getFriendlyError(raw: string): string {
 }
 
 const STEPS = [
-  { key: 'upload',          label: 'Upload',    icon: '⬆️',  kanji: '上' },
-  { key: 'extracting',      label: 'Frames',    icon: '🎞',  kanji: '映' },
-  { key: 'transcribing',    label: 'Audio',     icon: '🎙',  kanji: '声' },
-  { key: 'analyzing',       label: 'AI Vision', icon: '🧠',  kanji: '知' },
-  { key: 'detecting_music', label: 'Music',     icon: '🎵',  kanji: '楽' },
-  { key: 'done',            label: 'Complete',  icon: '🌸',  kanji: '桜' },
+  { key: 'upload',          label: 'Upload',    icon: 'â¬†ï¸',  kanji: 'ä¸Š' },
+  { key: 'extracting',      label: 'Frames',    icon: 'ðŸŽž',  kanji: 'æ˜ ' },
+  { key: 'transcribing',    label: 'Audio',     icon: 'ðŸŽ™',  kanji: 'å£°' },
+  { key: 'analyzing',       label: 'AI Vision', icon: 'ðŸ§ ',  kanji: 'çŸ¥' },
+  { key: 'detecting_music', label: 'Music',     icon: 'ðŸŽµ',  kanji: 'æ¥½' },
+  { key: 'done',            label: 'Complete',  icon: 'ðŸŒ¸',  kanji: 'æ¡œ' },
 ] as const;
 
 type StepKey = typeof STEPS[number]['key'];
@@ -130,7 +130,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
                   }} />
                 )}
                 <div className="step-dot-sakura">
-                  {isDone ? '🌸' : step.icon}
+                  {isDone ? 'ðŸŒ¸' : step.icon}
                 </div>
                 <span className="step-name">{step.label}</span>
               </div>
@@ -139,7 +139,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
         </div>
       </div>
 
-      {/* Video Thumbnail Preview — Phase 3d */}
+      {/* Video Thumbnail Preview â€” Phase 3d */}
       {thumbnail && (
         <div style={{
           display: 'flex', justifyContent: 'center', marginBottom: 28,
@@ -166,7 +166,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
               fontSize: '0.72rem', fontWeight: 600,
               color: '#fff', letterSpacing: '0.08em',
             }}>
-              🎬 ANALYZING
+              ðŸŽ¬ ANALYZING
             </div>
             {/* Bottom gradient */}
             <div style={{
@@ -201,10 +201,10 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
           }} />
           <span style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
             {error
-              ? '詩が失われました — An error occurred'
+              ? 'è©©ãŒå¤±ã‚ã‚Œã¾ã—ãŸ â€” An error occurred'
               : currentStep === 'done'
-              ? '桜が咲きました — Analysis complete!'
-              : `${STEPS[currentIdx]?.label} in progress…`}
+              ? 'æ¡œãŒå’²ãã¾ã—ãŸ â€” Analysis complete!'
+              : `${STEPS[currentIdx]?.label} in progressâ€¦`}
           </span>
         </div>
 
@@ -226,7 +226,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
           }}>
             {messages.map((msg, i) => (
               <div key={i} className="log-entry">
-                <span className="log-arrow">›</span>
+                <span className="log-arrow">â€º</span>
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   {msg}
                 </span>
@@ -243,7 +243,7 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
             border: '1px solid rgba(248,113,113,0.18)',
             color: '#fca5a5', fontSize: '0.85rem', lineHeight: 1.6,
           }}>
-            ⚠ {error}
+            âš  {error}
           </div>
         )}
 
@@ -265,10 +265,11 @@ export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgress
           fontStyle: 'italic', fontSize: '0.95rem',
           color: 'var(--text-muted)', lineHeight: 2,
         }}>
-          <div style={{ color: 'var(--glass-border-bright)', fontSize: '1.4rem', marginBottom: 4 }}>花びら</div>
-          "Every frame a petal — patience blooms<br />into wisdom"
+          <div style={{ color: 'var(--glass-border-bright)', fontSize: '1.4rem', marginBottom: 4 }}>èŠ±ã³ã‚‰</div>
+          "Every frame a petal â€” patience blooms<br />into wisdom"
         </div>
       )}
     </div>
   );
 }
+

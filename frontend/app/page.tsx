@@ -7,41 +7,68 @@ import ResultsDashboard from '@/components/ResultsDashboard';
 import BatchAnalysis from '@/components/BatchAnalysis';
 import HistoryPanel, { saveToHistory } from '@/components/HistoryPanel';
 
-const SakuraScene = lazy(() => import('@/components/ThreeBackground'));
+const SakuraScene   = lazy(() => import('@/components/ThreeBackground'));
+const NodeNetwork   = lazy(() => import('@/components/NodeNetwork'));
 
 type AppState = 'hero' | 'analyzing' | 'results';
 type Theme = 'dark' | 'light';
 
-/* ── Page transition variants ────────────────────────────────────────────── */
-const sakuraVariants: Variants = {
-  hidden:  { opacity: 0, y: 36, filter: 'blur(8px)' },
-  visible: {
-    opacity: 1, y: 0, filter: 'blur(0px)',
-    transition: { duration: 0.9, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+const pageVariants: Variants = {
+  hidden:  { opacity: 0, y: 28, filter: 'blur(10px)' },
+  visible: { opacity: 1, y: 0,  filter: 'blur(0px)',  transition: { duration: 0.85, ease: [0.22, 1, 0.36, 1] as any } },
+  exit:    { opacity: 0, y: -18, filter: 'blur(6px)', transition: { duration: 0.32 } },
+};
+const stagger: Variants = { visible: { transition: { staggerChildren: 0.10 } } };
+const child: Variants   = {
+  hidden:  { opacity: 0, y: 20, filter: 'blur(4px)' },
+  visible: { opacity: 1, y: 0,  filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as any } },
+};
+
+const BENTO_FEATURES = [
+  {
+    icon: '&#x1F39E;', label: 'Frame Engine', title: 'Cinema-Grade\nExtraction',
+    desc: 'OpenCV samples every 3 seconds, capturing the sharpest key frames for AI analysis.',
+    stat: '60fps', statLabel: 'Precision', pingTop: '18px', pingLeft: '18px',
   },
-  exit: {
-    opacity: 0, y: -24, filter: 'blur(6px)',
-    transition: { duration: 0.38, ease: [0.4, 0, 1, 1] as [number, number, number, number] },
+  {
+    icon: '&#x1F399;', label: 'Audio AI', title: 'Whisper\nTranscription',
+    desc: 'OpenAI Whisper converts dialogue into full, timestamped text in seconds.',
+    stat: '99%', statLabel: 'Accuracy', pingTop: '18px', pingLeft: '18px',
   },
-};
-
-const stagger: Variants = {
-  visible: { transition: { staggerChildren: 0.14 } },
-};
-
-const childVariant: Variants = {
-  hidden:  { opacity: 0, y: 22 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } },
-};
-
-/* ── Feature list ─────────────────────────────────────────────────────── */
-const FEATURES = [
-  { icon: '🎞', text: 'Frame Extraction',    jp: '映像抽出' },
-  { icon: '🎙', text: 'Audio Transcription', jp: '音声転写' },
-  { icon: '🧠', text: 'Gemini Vision AI',    jp: 'AI視覚' },
-  { icon: '🎯', text: 'Hook Score',           jp: 'フック' },
-  { icon: '📊', text: 'Sentiment Analysis',  jp: '感情分析' },
 ];
+
+// Simple counter hook
+function useCounter(target: number, duration = 1800) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        obs.disconnect();
+        let start = 0;
+        const step = Math.ceil(target / (duration / 16));
+        const timer = setInterval(() => {
+          start = Math.min(start + step, target);
+          setCount(start);
+          if (start >= target) clearInterval(timer);
+        }, 16);
+      }
+    }, { threshold: 0.5 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [target, duration]);
+  return { count, ref };
+}
+
+function StatCounter({ value, label, suffix = '' }: { value: number; label: string; suffix?: string }) {
+  const { count, ref } = useCounter(value);
+  return (
+    <div ref={ref} className="stat-counter">
+      <div className="stat-counter-val">{count.toLocaleString()}{suffix}</div>
+      <div className="stat-counter-lbl">{label}</div>
+    </div>
+  );
+}
 
 export default function Home() {
   const [appState,    setAppState]    = useState<AppState>('hero');
@@ -53,7 +80,6 @@ export default function Home() {
   const cursorDotRef  = useRef<HTMLDivElement>(null);
   const cursorRingRef = useRef<HTMLDivElement>(null);
 
-  /* ── Theme persistence ──────────────────────────────────────────────── */
   useEffect(() => {
     const saved = (localStorage.getItem('ci-theme') as Theme) || 'dark';
     setTheme(saved);
@@ -67,404 +93,310 @@ export default function Home() {
     localStorage.setItem('ci-theme', next);
   };
 
-  /* ── Custom cursor ──────────────────────────────────────────────────── */
+  /* Custom cursor */
   useEffect(() => {
     const dot  = cursorDotRef.current;
     const ring = cursorRingRef.current;
     if (!dot || !ring) return;
-
     let rafId: number;
-    let ringX = 0, ringY = 0;
-    let dotX  = 0, dotY  = 0;
-    let mouseX = 0, mouseY = 0;
-
-    const onMove = (e: MouseEvent) => { mouseX = e.clientX; mouseY = e.clientY; };
-
+    let rx = 0, ry = 0, dx = 0, dy = 0, mx = 0, my = 0;
+    const onMove = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; };
     const loop = () => {
-      dotX  += (mouseX - dotX)  * 0.92;
-      dotY  += (mouseY - dotY)  * 0.92;
-      dot.style.left = `${dotX}px`;
-      dot.style.top  = `${dotY}px`;
-
-      ringX += (mouseX - ringX) * 0.12;
-      ringY += (mouseY - ringY) * 0.12;
-      ring.style.left = `${ringX}px`;
-      ring.style.top  = `${ringY}px`;
-
+      dx += (mx - dx) * 0.95; dy += (my - dy) * 0.95;
+      dot.style.left = `${dx}px`; dot.style.top = `${dy}px`;
+      rx += (mx - rx) * 0.10;   ry += (my - ry) * 0.10;
+      ring.style.left = `${rx}px`; ring.style.top = `${ry}px`;
       rafId = requestAnimationFrame(loop);
     };
-
     window.addEventListener('mousemove', onMove);
     loop();
     return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(rafId); };
   }, []);
 
-  /* ── GSAP scroll-reveal ─────────────────────────────────────────────── */
-  useEffect(() => {
-    if (appState !== 'hero') return;
-    const setup = async () => {
-      const { gsap } = await import('gsap');
-      const { ScrollTrigger } = await import('gsap/ScrollTrigger');
-      gsap.registerPlugin(ScrollTrigger);
-      gsap.utils.toArray<HTMLElement>('.gsap-reveal').forEach(el => {
-        gsap.from(el, {
-          opacity: 0, y: 44, duration: 1,
-          ease: 'power3.out',
-          scrollTrigger: { trigger: el, start: 'top 84%', toggleActions: 'play none none none' },
-        });
-      });
-    };
-    setup();
-  }, [appState]);
-
   const handleJobCreated = (id: string) => { setJobId(id); setAppState('analyzing'); };
   const handleComplete   = (data: any)  => { setResult(data); setAppState('results'); saveToHistory(data, jobId); };
   const handleReset      = ()           => { setJobId(''); setResult(null); setAppState('hero'); };
 
+  const NavBar = ({ showBack }: { showBack?: boolean }) => (
+    <nav className="nav-bento">
+      <div className="nav-logo">
+        <div className="nav-logo-mark">&#x1F338;</div>
+        <div>
+          <div className="nav-logo-name">Clip<span className="sakura-text">Insight</span> AI</div>
+          <div className="nav-logo-sub">&#26716;&#12398;&#30693;&#24913;</div>
+        </div>
+      </div>
+      <div className="nav-pills">
+        {showBack ? (
+          <button className="nav-pill" onClick={handleReset}>&larr; New Analysis</button>
+        ) : (
+          <>
+            <button className="nav-pill active">Analyze</button>
+            <button className="nav-pill" onClick={() => setShowBatch(true)}>Compare</button>
+            <button className="nav-pill" onClick={() => setShowHistory(true)}>History</button>
+          </>
+        )}
+      </div>
+      <div className="nav-actions">
+        <button className="nav-theme-toggle" onClick={toggleTheme} title="Toggle theme">
+          {theme === 'dark' ? '\u2600' : '\uD83C\uDF19'}
+        </button>
+        <span className="nav-beta-badge">Beta</span>
+      </div>
+    </nav>
+  );
+
   return (
     <>
-      {/* ── Custom cursor ───────────────────────────────────────────────── */}
+      {/* ── Web3 background layers ── */}
+      <div className="grid-overlay" />
+      <div className="dot-grid-bg" />
+      <div className="scan-line" />
+
+      {/* ── Custom cursor ── */}
       <div ref={cursorDotRef}  className="cursor-dot" />
       <div ref={cursorRingRef} className="cursor-ring" />
 
-      {/* ── Washi paper texture (subtle grain) ─────────────────────────── */}
-      <div className="washi-texture" aria-hidden="true" />
-
-      {/* ── Ambient orbs (pure CSS) ─────────────────────────────────────── */}
+      {/* ── Ambient orbs ── */}
       <div className="amb-orb amb-orb-1" />
       <div className="amb-orb amb-orb-2" />
       <div className="amb-orb amb-orb-3" />
 
-      {/* ── Three.js sakura scene ────────────────────────────────────────── */}
+      {/* ── Background canvases ── */}
       <Suspense fallback={null}>
         <SakuraScene />
       </Suspense>
+      <Suspense fallback={null}>
+        <NodeNetwork />
+      </Suspense>
 
-      <div className="app-wrapper">
-        <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait">
 
-          {/* ════════════════════════════════════════════════════════════════
-              HERO PAGE
-              ════════════════════════════════════════════════════════════════ */}
-          {appState === 'hero' && (
-            <motion.div
-              key="hero"
-              variants={sakuraVariants}
-              initial="hidden" animate="visible" exit="exit">
+        {/* ══════════ HERO ══════════ */}
+        {appState === 'hero' && (
+          <motion.div key="hero" variants={pageVariants} initial="hidden" animate="visible" exit="exit"
+            style={{ position: 'relative', zIndex: 2, minHeight: '100vh' }}>
 
-              {/* ── Navbar ─────────────────────────────────────────────── */}
-              <nav className="sakura-nav">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  {/* Logo mark */}
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: 'var(--grad-sakura)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1rem',
-                    boxShadow: '0 4px 16px rgba(155,59,82,0.4)',
-                    transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
-                  }}
-                    onMouseEnter={e => (e.currentTarget.style.transform = 'rotate(-10deg) scale(1.1)')}
-                    onMouseLeave={e => (e.currentTarget.style.transform = '')}>
-                    🌸
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontWeight: 600, fontSize: '1.08rem', color: 'var(--text-primary)' }}>
-                      Clip<span className="sakura-text">Insight</span> AI
-                    </div>
-                    <div style={{ fontSize: '0.58rem', letterSpacing: '0.16em', color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: 1 }}>
-                      桜の知恵
-                    </div>
-                  </div>
-                </div>
+            <NavBar />
 
-                {/* Nav right */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <button
-                    onClick={() => setShowBatch(true)}
-                    style={{
-                      padding: '7px 15px', borderRadius: 'var(--r-sm)', fontSize: '0.77rem',
-                      fontWeight: 600, cursor: 'none', fontFamily: 'var(--font-body)',
-                      background: 'var(--glass-bg)',
-                      border: '1px solid var(--glass-border)',
-                      color: 'var(--sakura-blush)',
-                      transition: 'all 0.22s ease',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--glass-border-bright)'; e.currentTarget.style.background = 'var(--glass-elevated-bg)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.background = 'var(--glass-bg)'; }}>
-                    ⚡ Compare
-                  </button>
-                  <button
-                    onClick={() => setShowHistory(true)}
-                    style={{
-                      padding: '7px 15px', borderRadius: 'var(--r-sm)', fontSize: '0.77rem',
-                      fontWeight: 600, cursor: 'none', fontFamily: 'var(--font-body)',
-                      background: 'var(--glass-bg)',
-                      border: '1px solid var(--glass-border)',
-                      color: 'var(--sakura-blush)',
-                      transition: 'all 0.22s ease',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--glass-border-bright)'; e.currentTarget.style.background = 'var(--glass-elevated-bg)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--glass-border)'; e.currentTarget.style.background = 'var(--glass-bg)'; }}>
-                    📜 History
-                  </button>
-                  {/* Theme toggle */}
-                  <button
-                    className="theme-toggle"
-                    onClick={toggleTheme}
-                    title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-                    aria-label="Toggle theme">
-                    {theme === 'dark' ? '☀️' : '🌙'}
-                  </button>
-                  <span style={{
-                    padding: '5px 12px', borderRadius: 'var(--r-full)', fontSize: '0.68rem',
-                    fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                    background: 'var(--glass-bg)',
-                    border: '1px solid var(--glass-border)',
-                    color: 'var(--gold)',
-                    fontFamily: 'var(--font-ui)',
-                  }}>Beta</span>
-                </div>
-
-                {/* Thin torii accent on nav bottom-center */}
-                <div className="nav-torii-line" />
-              </nav>
-
-              {/* ── Hero ─────────────────────────────────────────────── */}
-              <section className="hero-section">
-                {/* Ghost kanji watermark */}
-                <div className="kanji-bg" style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', opacity: 0.035 }}>映</div>
-
-                <motion.div
-                  className="hero-content"
-                  variants={stagger}
-                  initial="hidden" animate="visible">
-
-                  {/* Eyebrow badge */}
-                  <motion.div variants={childVariant}>
-                    <div className="hero-eyebrow">
-                      <span style={{
-                        width: 6, height: 6, borderRadius: '50%',
-                        background: '#6EE7B7', display: 'inline-block',
-                        boxShadow: '0 0 8px #6EE7B7',
-                        animation: 'step-breathe 3s infinite',
-                      }} />
-                      Powered by Gemini 2.0 Flash  ·  桜咲く
-                    </div>
-                  </motion.div>
-
-                  {/* Main title */}
-                  <motion.h1 className="hero-title" variants={childVariant}>
-                    Every Frame<br />
-                    <span className="sakura-text">Tells a Story</span>
-                  </motion.h1>
-
-                  {/* Gold accent line beneath title */}
-                  <motion.div variants={childVariant}>
-                    <div className="hero-title-accent" />
-                  </motion.div>
-
-                  {/* Subtitle */}
-                  <motion.p className="hero-subtitle" variants={childVariant}>
-                    Drop a reel. Watch the petals fall. ClipInsight AI extracts every frame,
-                    transcribes the audio, and delivers cinematic-grade insights in moments.
-                  </motion.p>
-
-                  {/* CTA buttons */}
-                  <motion.div
-                    variants={childVariant}
-                    style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 56 }}>
-                    <button
-                      className="btn-sakura"
-                      onClick={() => document.getElementById('upload')?.scrollIntoView({ behavior: 'smooth' })}>
-                      🌸 Begin Analysis
-                    </button>
-                    <button className="btn-ghost-sakura">
-                      Watch Demo ▶
-                    </button>
-                  </motion.div>
-
-                  {/* Feature pills */}
-                  <motion.div
-                    variants={childVariant}
-                    style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    {FEATURES.map(f => (
-                      <div key={f.text} className="feature-pill" title={f.jp}>
-                        <span>{f.icon}</span>
-                        <span>{f.text}</span>
-                      </div>
-                    ))}
-                  </motion.div>
-                </motion.div>
-
-                {/* Scroll indicator */}
-                <div className="scroll-indicator">
-                  <div className="scroll-indicator-line" />
-                  scroll
-                </div>
-              </section>
-
-              {/* ── How It Works ─────────────────────────────────────── */}
-              <section style={{ padding: '100px 48px', position: 'relative' }}>
-                <div className="gsap-reveal" style={{ maxWidth: 1100, margin: '0 auto' }}>
-                  <div style={{ textAlign: 'center', marginBottom: 60 }}>
-                    <div className="section-label" style={{ justifyContent: 'center' }}>
-                      <div className="section-label-line" />
-                      <span>How It Works</span>
-                      <div className="section-label-line right" />
-                    </div>
-                    <h2 className="section-title" style={{ textAlign: 'center' }}>
-                      Three Steps to <span className="sakura-text">Clarity</span>
-                    </h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 8, fontFamily: 'var(--font-ui)' }}>
-                      三つの道 — The way of three
-                    </p>
-                  </div>
-
-                  <div className="feature-grid">
-                    {[
-                      { num: '01', kanji: '入', title: 'Upload or Link',         desc: 'Drop any video file or paste a link from Instagram, YouTube, TikTok, or Twitter. Up to 200MB.', icon: '🎬', color: 'var(--sakura-bloom)' },
-                      { num: '02', kanji: '解', title: 'AI Extracts & Understands', desc: 'OpenCV samples key frames. Whisper transcribes every word. Gemini Vision reads the visual story.', icon: '🧠', color: 'var(--gold)' },
-                      { num: '03', kanji: '咲', title: 'Insights Bloom',         desc: 'Receive a full report — summary, hook score, sentiment, tags, audience, and improvement suggestions.', icon: '🌸', color: 'var(--jade)' },
-                    ].map(step => (
-                      <div key={step.num} className="feature-card">
-                        <div className="feature-card-kanji">{step.kanji}</div>
-                        <div style={{ fontSize: '2rem', marginBottom: 16 }}>{step.icon}</div>
-                        <div className="feature-card-number">Step {step.num}</div>
-                        <h3 style={{
-                          fontFamily: 'var(--font-heading)', fontStyle: 'italic',
-                          fontSize: '1.35rem', fontWeight: 600,
-                          marginBottom: 10, color: 'var(--text-primary)',
-                        }}>{step.title}</h3>
-                        <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.75, fontFamily: 'var(--font-ui)' }}>
-                          {step.desc}
-                        </p>
-                        {/* Bottom accent bar */}
-                        <div style={{
-                          position: 'absolute', bottom: 0, left: '20%', right: '20%', height: '2px',
-                          background: step.color === 'var(--sakura-bloom)' ? 'var(--grad-sakura)' :
-                                      step.color === 'var(--gold)' ? 'var(--grad-gold)' :
-                                      'linear-gradient(90deg, #3D7A6A, #5E9B8A)',
-                          opacity: 0.5, borderRadius: '1px',
-                          transition: 'opacity 0.3s ease',
-                        }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
-              {/* ── Upload Section ──────────────────────────────────── */}
-              <section id="upload" className="upload-section">
-                <div className="gsap-reveal" style={{ maxWidth: 780, margin: '0 auto' }}>
-                  <div style={{ textAlign: 'center', marginBottom: 44 }}>
-                    <div className="section-label" style={{ justifyContent: 'center' }}>
-                      <div className="section-label-line" />
-                      <span>Start Here</span>
-                      <div className="section-label-line right" />
-                    </div>
-                    <h2 className="section-title" style={{ textAlign: 'center' }}>
-                      Let the <span className="sakura-text">Petals Fall</span>
-                    </h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 10, fontFamily: 'var(--font-ui)' }}>
-                      桜の様に — Like the sakura, beauty reveals itself in motion
-                    </p>
-                  </div>
-                  <UploadCard onJobCreated={handleJobCreated} />
-                </div>
-              </section>
-
-              {/* ── Footer ──────────────────────────────────────────── */}
-              <footer style={{
-                padding: '36px 48px',
-                borderTop: '1px solid var(--glass-border)',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                flexWrap: 'wrap', gap: 14,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <span style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                    Clip<span className="sakura-text">Insight</span> AI
-                  </span>
-                  <span style={{ color: 'var(--glass-border-bright)', fontSize: '0.7rem' }}>·</span>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontFamily: 'var(--font-ui)' }}>桜咲く · 2025</span>
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)', display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span className="gold-text" style={{ fontWeight: 600 }}>Gemini 2.0</span>
-                  <span style={{ color: 'var(--glass-border-bright)' }}>·</span>
-                  Whisper · OpenCV
-                </div>
-              </footer>
-            </motion.div>
-          )}
-
-          {/* ════════════════════════════════════════════════════════════════
-              ANALYZING PAGE
-              ════════════════════════════════════════════════════════════════ */}
-          {appState === 'analyzing' && (
-            <motion.div
-              key="analyzing"
-              variants={sakuraVariants}
-              initial="hidden" animate="visible" exit="exit"
-              style={{
-                minHeight: '100vh', display: 'flex',
-                flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'center', padding: '80px 24px',
-              }}>
-
-              {/* Ghost kanji */}
-              <div className="kanji-bg" style={{
-                top: '50%', left: '50%',
-                transform: 'translate(-50%,-50%)',
-                fontSize: '55vw', opacity: 0.025,
-              }}>知</div>
-
-              <div style={{ textAlign: 'center', marginBottom: 52, position: 'relative', zIndex: 1 }}>
-                <div style={{
-                  width: 76, height: 76, margin: '0 auto 22px',
-                  background: 'var(--grad-sakura)',
-                  borderRadius: 22,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '2rem',
-                  boxShadow: '0 0 50px rgba(155,59,82,0.45)',
-                  animation: 'step-breathe 3s infinite',
-                }}>🧠</div>
-                <h2 style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '2.2rem', fontWeight: 600, marginBottom: 10 }}>
-                  AI is <span className="sakura-text">Awakening</span>
-                </h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', letterSpacing: '0.04em', fontFamily: 'var(--font-ui)' }}>
-                  知識の花が咲く — The flower of knowledge blooms
-                </p>
+            {/* Hero */}
+            <section className="hero-bento">
+              {/* Glassmorphism sphere — with expanding rings */}
+              <div className="hero-sphere" style={{ position: 'relative' }}>
+                <div className="sphere-hex-ring" />
+                <div className="sphere-hex-ring" />
+                <div className="sphere-hex-ring" />
               </div>
 
-              <AnalysisProgress jobId={jobId} onComplete={handleComplete} />
-            </motion.div>
-          )}
+              {/* Outline Kanji */}
+              <div className="hero-kanji-right">&#26144;</div>
 
-          {/* ════════════════════════════════════════════════════════════════
-              RESULTS PAGE
-              ════════════════════════════════════════════════════════════════ */}
-          {appState === 'results' && (
-            <motion.div
-              key="results"
-              variants={sakuraVariants}
-              initial="hidden" animate="visible" exit="exit"
-              style={{ paddingTop: 60 }}>
+              {/* Vertical Japanese strip */}
+              <div className="hero-vertical-text">
+                &#12463;&#12522;&#12483;&#12503;&#12452;&#12531;&#12469;&#12452;&#12488;&#12539;AI&#12539;&#26144;&#20687;&#12398;&#30693;&#24913;&#12539;&#26716;&#20241;&#12367;
+              </div>
+
+              {/* Editorial headline */}
+              <motion.div className="hero-headline-wrap" variants={stagger} initial="hidden" animate="visible">
+                <motion.div variants={child}>
+                  <div className="hero-eyebrow">
+                    <div className="hero-eyebrow-dot" />
+                    Powered by Gemini 2.0 Flash &middot; &#26716;&#21056;&#12367;
+                  </div>
+                </motion.div>
+
+                <motion.h1 className="hero-title" variants={child}>
+                  Every Frame<br />
+                  <span className="hero-title-accent">Tells a Story</span>
+                  <span className="type-cursor" />
+                </motion.h1>
+
+                <motion.p className="hero-sub" variants={child}>
+                  Drop any reel. ClipInsight AI extracts key frames, transcribes every word,
+                  and delivers cinematic-grade insights &mdash; in seconds.
+                </motion.p>
+
+                {/* Web3-style stat counters */}
+                <motion.div variants={child} className="stat-counter-row">
+                  <StatCounter value={12847} label="Reels Analyzed" suffix="+" />
+                  <StatCounter value={99}    label="Accuracy"        suffix="%" />
+                  <StatCounter value={3}     label="Sec Avg. Time"   suffix="s" />
+                </motion.div>
+
+                <motion.div className="hero-cta-row" variants={child} style={{ marginTop: 28 }}>
+                  <button className="btn-fusion"
+                    onClick={() => document.getElementById('bento')?.scrollIntoView({ behavior: 'smooth' })}>
+                    &#x1F338; Begin Analysis
+                  </button>
+                  <button className="btn-ghost">Watch Demo &#9654;</button>
+                </motion.div>
+              </motion.div>
+            </section>
+
+            {/* ══════════ BENTO GRID ══════════ */}
+            <section id="bento" className="bento-section">
+              <div className="bento-grid">
+
+                {/* Main tall left card */}
+                <motion.div className="bento-card bento-main"
+                  initial={{ opacity: 0, x: -30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}>
+                  {/* Corner dots */}
+                  <div className="bento-corner-dot tl" />
+                  <div className="bento-corner-dot tr" />
+                  <div className="bento-corner-dot bl" />
+                  <div className="bento-corner-dot br" />
+
+                  <div className="bento-main-kanji">&#35299;</div>
+                  <div>
+                    <div className="bento-brand-tag">&#x1F9E0; ClipInsight AI</div>
+                    <h2 className="bento-main-title">
+                      AI That Reads<br />
+                      Between the <span className="electric-text">Frames</span>
+                    </h2>
+                    <p className="bento-main-desc">
+                      Our multi-model pipeline combines computer vision, speech recognition,
+                      and large language models to uncover what makes a video truly work.
+                      Hook scores, sentiment arcs, audience fit &mdash; all from a single drop.
+                    </p>
+                  </div>
+                  <div>
+                    {/* Data line accent */}
+                    <div className="data-line" />
+                    <div style={{ fontSize: '0.65rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--tx-3)', fontFamily: 'var(--font-ui)', marginBottom: 10 }}>
+                      Pipeline
+                    </div>
+                    <div className="bento-step-dots">
+                      {['\u2B06', '\uD83C\uDF9E', '\uD83C\uDF99', '\uD83E\uDDE0', '\uD83C\uDF38'].map((icon, i) => (
+                        <div key={i} className={`bento-step-dot${i < 3 ? ' active' : ''}`} style={{ fontSize: '0.8rem' }}>
+                          {icon}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* Feature cards */}
+                {BENTO_FEATURES.map((feat, idx) => (
+                  <motion.div key={feat.label}
+                    className="bento-card bento-sm"
+                    style={{ gridColumn: 2, gridRow: idx + 1, position: 'relative' }}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.75, delay: idx * 0.12, ease: [0.22, 1, 0.36, 1] }}>
+                    {/* Node ping dot */}
+                    <div className="node-ping" style={{ top: feat.pingTop, left: feat.pingLeft }} />
+
+                    <div>
+                      <div className="bento-sm-icon" dangerouslySetInnerHTML={{ __html: feat.icon }} />
+                      <div className="bento-sm-label">{feat.label}</div>
+                      <div className="bento-sm-title" style={{ whiteSpace: 'pre-line' }}>{feat.title}</div>
+                      <p className="bento-sm-desc">{feat.desc}</p>
+                    </div>
+                    <div className="bento-sm-stat">
+                      <div className="bento-sm-stat-val">{feat.stat}</div>
+                      <div className="bento-sm-stat-lbl">{feat.statLabel}</div>
+                    </div>
+                  </motion.div>
+                ))}
+
+                {/* Upload card */}
+                <motion.div className="bento-card bento-upload-card"
+                  style={{ gridColumn: 3, gridRow: '1 / 3', position: 'relative' }}
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}>
+                  {/* Corner dots */}
+                  <div className="bento-corner-dot tl" />
+                  <div className="bento-corner-dot tr" />
+                  {/* Node ping */}
+                  <div className="node-ping" style={{ top: '18px', right: '18px', left: 'auto' }} />
+
+                  <div className="bento-upload-header">
+                    <div className="bento-upload-icon">&#x1F338;</div>
+                    <div className="bento-upload-title">
+                      Let the <span className="sakura-text">Petals Fall</span>
+                    </div>
+                    <div className="bento-upload-sub">Upload or paste &middot; AI insights in seconds</div>
+                  </div>
+                  <div className="data-line" style={{ margin: '12px 0' }} />
+                  <UploadCard onJobCreated={handleJobCreated} />
+                </motion.div>
+
+              </div>
+            </section>
+
+            {/* Footer */}
+            <footer style={{
+              padding: '30px 60px', marginTop: 20,
+              borderTop: '1px solid var(--gl-border)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              flexWrap: 'wrap', gap: 12, position: 'relative', zIndex: 2,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', color: 'var(--tx-2)', fontSize: '0.9rem' }}>
+                  Clip<span className="sakura-text">Insight</span> AI
+                </span>
+                <span style={{ color: 'var(--tx-3)', fontSize: '0.7rem', fontFamily: 'var(--font-ui)' }}>
+                  &#26716;&#21056;&#12367; &middot; 2025
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'var(--tx-3)', fontFamily: 'var(--font-ui)' }}>
+                <span className="electric-text" style={{ fontWeight: 600 }}>Gemini 2.0 Flash</span>
+                <span>&middot;</span>Whisper &middot; OpenCV
+              </div>
+            </footer>
+          </motion.div>
+        )}
+
+        {/* ══════════ ANALYZING ══════════ */}
+        {appState === 'analyzing' && (
+          <motion.div key="analyzing" variants={pageVariants} initial="hidden" animate="visible" exit="exit"
+            style={{ position: 'relative', zIndex: 2 }}>
+            <NavBar />
+            <div className="progress-section">
+              <div className="kanji-bg" style={{ top:'50%', left:'50%', transform:'translate(-50%,-50%)', opacity:0.025 }}>&#30693;</div>
+              <div style={{ maxWidth: 700, width: '100%', position: 'relative', zIndex: 1 }}>
+                <div style={{ textAlign: 'center', marginBottom: 52 }}>
+                  <div style={{
+                    width: 76, height: 76, margin: '0 auto 22px',
+                    background: 'var(--grad-fusion)', borderRadius: 22,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem',
+                    boxShadow: '0 0 50px rgba(124,58,237,0.45)',
+                    animation: 'step-breathe 3s infinite',
+                  }}>&#x1F9E0;</div>
+                  <h2 style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '2.2rem', fontWeight: 600, marginBottom: 10 }}>
+                    AI is <span className="electric-text">Awakening</span>
+                  </h2>
+                  <p style={{ color: 'var(--tx-2)', fontSize: '0.88rem', letterSpacing: '0.04em', fontFamily: 'var(--font-ui)' }}>
+                    &#30693;&#35672;&#12398;&#33457;&#12364;&#21056;&#12367; &mdash; The flower of knowledge blooms
+                  </p>
+                </div>
+                <AnalysisProgress jobId={jobId} onComplete={handleComplete} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ══════════ RESULTS ══════════ */}
+        {appState === 'results' && (
+          <motion.div key="results" variants={pageVariants} initial="hidden" animate="visible" exit="exit"
+            style={{ position: 'relative', zIndex: 2 }}>
+            <NavBar showBack />
+            <div style={{ paddingTop: 70 }}>
               <ResultsDashboard result={result} jobId={jobId} onReset={handleReset} />
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
+        )}
 
-        </AnimatePresence>
-      </div>
+      </AnimatePresence>
 
-      {/* ── Batch Comparison modal ──────────────────────────────────────── */}
-      {showBatch && <BatchAnalysis onClose={() => setShowBatch(false)} />}
-
-      {/* ── History Panel ───────────────────────────────────────────────── */}
-      <HistoryPanel
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-        onReplay={(id) => { setShowHistory(false); }}
-      />
+      {showBatch    && <BatchAnalysis onClose={() => setShowBatch(false)} />}
+      <HistoryPanel  isOpen={showHistory} onClose={() => setShowHistory(false)} onReplay={() => setShowHistory(false)} />
     </>
   );
 }

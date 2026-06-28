@@ -206,7 +206,15 @@ async def analyze_url_json(req: AnalyzeURLRequest):
     """
     Accept a video URL as JSON payload, download it, and return a job_id.
     """
-    url = req.url
+    import unicodedata
+    raw_url = req.url or ""
+    # Strip zero-width space, non-joiner, joiner, direction marks, and control characters
+    url = "".join(
+        c for c in raw_url 
+        if c not in ("\u200b", "\u200c", "\u200d", "\u200e", "\u200f", "\ufeff") 
+        and not unicodedata.category(c).startswith('C')
+    ).strip()
+
     if not is_valid_url(url):
         raise HTTPException(status_code=400, detail="Invalid URL.")
 

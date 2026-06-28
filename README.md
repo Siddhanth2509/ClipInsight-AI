@@ -11,7 +11,7 @@
 [![Gemini](https://img.shields.io/badge/Google_Gemini-AI-orange?style=flat-square&logo=google)](https://ai.google.dev)
 [![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
 
-![ClipInsight AI Demo](docs/screenshots/dashboard.png)
+![ClipInsight AI Demo](docs/screenshots/homepage.png)
 
 </div>
 
@@ -141,13 +141,21 @@ We implement Shazam's fingerprinting algorithm from scratch in pure Python:
 
 ## 🖼 Screenshots
 
-| Homepage (Dark Theme) | Analysis In Progress |
+| Homepage (Dark Theme) | Themes Selection (7 Colors) |
 |---|---|
-| ![Homepage](docs/screenshots/homepage.png) | ![Progress](docs/screenshots/progress.png) |
+| ![Homepage](docs/screenshots/homepage.png) | ![Themes](docs/screenshots/themes.png) |
 
-| Results Dashboard | Ice White (Light Theme) |
+| Analysis In Progress | Results Dashboard |
 |---|---|
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Light Theme](docs/screenshots/light_theme.png) |
+| ![Progress](docs/screenshots/progress.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+
+| AI Analysis Breakdown | Extracted Frames |
+|---|---|
+| ![Breakdown](docs/screenshots/breakdown.png) | ![Frames](docs/screenshots/frames.png) |
+
+| Confidence Radar | API Access |
+|---|---|
+| ![Radar](docs/screenshots/radar.png) | ![API](docs/screenshots/api.png) |
 
 ---
 

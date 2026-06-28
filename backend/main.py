@@ -50,6 +50,10 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, Response
+from pydantic import BaseModel
+
+class AnalyzeURLRequest(BaseModel):
+    url: str
 
 from backend.src.config import TEMP_DIR
 from backend.src.video_processor  import save_uploaded_file, download_video, is_valid_url, fetch_comments
@@ -176,6 +180,58 @@ async def analyze_url(url: str = Form(...)):
             jobs[job_id]["thumbnail_url"] = f"https://img.youtube.com/vi/{vid_id}/hqdefault.jpg"
 
         # Fallback to info.json thumbnail if YouTube regex doesn't match
+        if not jobs[job_id].get("thumbnail_url") and video_path:
+            info_path = video_path.parent / "info.json"
+            if info_path.exists():
+                import json as _json
+                try:
+                    with open(info_path, "r", encoding="utf-8") as f:
+                        meta = _json.load(f)
+                        if meta.get("thumbnail"):
+                            jobs[job_id]["thumbnail_url"] = meta["thumbnail"]
+                except Exception as e:
+                    print(f"[WARN] Failed to read thumbnail from info.json: {e}")
+
+        _log(job_id, "Download complete.")
+    except Exception as e:
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["error"]  = str(e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"job_id": job_id}
+
+
+@app.post("/analyze/url")
+async def analyze_url_json(req: AnalyzeURLRequest):
+    """
+    Accept a video URL as JSON payload, download it, and return a job_id.
+    """
+    url = req.url
+    if not is_valid_url(url):
+        raise HTTPException(status_code=400, detail="Invalid URL.")
+
+    job_id = _new_job()
+    jobs[job_id]["status"]     = "downloading"
+    jobs[job_id]["source_url"] = url
+    _log(job_id, f"Starting download (JSON): {url[:60]}…")
+
+    loop = asyncio.get_event_loop()
+
+    def _download():
+        return download_video(url, job_id, progress_callback=lambda m: _log(job_id, m))
+
+    try:
+        video_path = await loop.run_in_executor(None, _download)
+        jobs[job_id]["status"]     = "downloaded"
+        jobs[job_id]["video_path"] = str(video_path)
+
+        # Extract YouTube thumbnail
+        import re as _re
+        yt_match = _re.search(r"(?:v=|shorts/|youtu\.be/)([\w-]{11})", url)
+        if yt_match:
+            vid_id = yt_match.group(1)
+            jobs[job_id]["thumbnail_url"] = f"https://img.youtube.com/vi/{vid_id}/hqdefault.jpg"
+
         if not jobs[job_id].get("thumbnail_url") and video_path:
             info_path = video_path.parent / "info.json"
             if info_path.exists():

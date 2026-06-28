@@ -11,7 +11,7 @@
 [![Gemini](https://img.shields.io/badge/Google_Gemini-AI-orange?style=flat-square&logo=google)](https://ai.google.dev)
 [![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
 
-![ClipInsight AI Demo](linkedin_content/screenshots/01_results_dashboard.png)
+![ClipInsight AI Demo](docs/screenshots/dashboard.png)
 
 </div>
 
@@ -62,7 +62,7 @@ Paste any **YouTube Short** or **Instagram Reel** URL → ClipInsight AI runs a 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.11+ (Python 3.13 requires model cache hotfix for Whisper)
 - Node.js 18+
 - FFmpeg ([install guide](https://ffmpeg.org/download.html))
 - Google Gemini API key ([get one free](https://ai.google.dev))
@@ -70,7 +70,7 @@ Paste any **YouTube Short** or **Instagram Reel** URL → ClipInsight AI runs a 
 ### 1. Clone & install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/clipinsight-ai.git
+git clone https://github.com/Siddhanth2509/ClipInsight-AI.git
 cd clipinsight-ai
 
 # Backend
@@ -80,21 +80,37 @@ pip install -r backend/requirements.txt
 cd frontend && npm install
 ```
 
-### 2. Configure API key
+### 2. Configure API key & Session Cookies
 
-```bash
-cp .env.example .env
-# Edit .env and add your Gemini API key
-```
+#### A. Configure API keys (Windows Users)
+You can set your API keys globally in the Windows User Registry so you don't need a `.env` file.
+1. Open the [GlobalAPIKeys.ps1](file:///d:/Mine/Learning/Insta%20Reel%20AI/GlobalAPIKeys.ps1) script.
+2. Replace the placeholder values with your real keys.
+3. Run the script in PowerShell:
+   ```powershell
+   .\GlobalAPIKeys.ps1
+   ```
+4. Restart your terminal window to apply.
+
+*Alternatively, copy `.env.example` to `.env` and fill in the values.*
+
+#### B. Bypass Instagram login checks (Optional)
+To download age-restricted or private Instagram Reels, you must provide session cookies:
+1. Log in to Instagram on your desktop browser.
+2. Install a cookie exporter extension (like *Get cookies.txt LOCALLY*).
+3. Export your cookies as a Netscape formatted text file.
+4. Rename it to `cookies.txt` and save it directly in the project root folder.
+*The backend automatically detects it and uses it safely (configured to be excluded from Git commits).*
 
 ### 3. Run
 
 ```bash
-# Terminal 1 — Backend
+# Terminal 1 — Backend (from project root)
 python -m uvicorn backend.main:app --reload --port 8000
 
 # Terminal 2 — Frontend
-cd frontend && npm run dev
+cd frontend
+npm run dev
 ```
 
 Open **http://localhost:3000** 🌸
@@ -125,13 +141,13 @@ We implement Shazam's fingerprinting algorithm from scratch in pure Python:
 
 ## 🖼 Screenshots
 
-| Homepage | Analysis in Progress | Results Dashboard |
-|---|---|---|
-| ![Home](linkedin_content/screenshots/04_homepage.png) | | ![Results](linkedin_content/screenshots/01_results_dashboard.png) |
-
-| Insights & Hook Score | Extracted Frames |
+| Homepage (Dark Theme) | Analysis In Progress |
 |---|---|
-| ![Insights](linkedin_content/screenshots/02_insights_view.png) | ![Frames](linkedin_content/screenshots/03_frames_view.png) |
+| ![Homepage](docs/screenshots/homepage.png) | ![Progress](docs/screenshots/progress.png) |
+
+| Results Dashboard | Ice White (Light Theme) |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Light Theme](docs/screenshots/light_theme.png) |
 
 ---
 

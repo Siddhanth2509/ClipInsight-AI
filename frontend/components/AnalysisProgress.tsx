@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 const ERROR_MAP: Record<string, string> = {
   private_video:      'This video is private — please try a public video.',
   video_unavailable:  'This video is no longer available. It may have been deleted.',
-  login_required:     'Login required to access this video. Try a YouTube or public Instagram URL.',
+  login_required:     'Login required to access this video. Export browser session cookies to "cookies.txt" in the project root to analyze restricted Instagram Reels.',
   video_too_long:     'Video too long — maximum is 3 minutes. Please try a shorter clip.',
   too_large:          'Video file is too large (max 100MB). Please try a shorter clip.',
   age_restricted:     'This video is age-restricted and cannot be accessed.',

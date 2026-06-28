@@ -1,381 +1,714 @@
 'use client';
-import { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import UploadCard from '@/components/UploadCard';
+import dynamic from 'next/dynamic';
 import AnalysisProgress from '@/components/AnalysisProgress';
 import ResultsDashboard from '@/components/ResultsDashboard';
-import HistoryPanel, { saveToHistory } from '@/components/HistoryPanel';
-import PipelineAnimation from '@/components/PipelineAnimation';
+import { saveToHistory } from '@/components/HistoryPanel';
 
-const NodeNetwork = lazy(() => import('@/components/NodeNetwork'));
+const HeroScene = dynamic(() => import('@/components/HeroScene'), { ssr: false });
 
 type AppState = 'hero' | 'analyzing' | 'results';
 
-const fade = {
-  hidden:  { opacity: 0, y: 24, filter: 'blur(8px)' },
-  visible: { opacity: 1, y: 0,  filter: 'blur(0px)', transition: { duration: 0.7, ease: [0.22,1,0.36,1] as any } },
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+const fadeUp = {
+  hidden:  { opacity: 0, y: 32, filter: 'blur(8px)' },
+  visible: (d = 0) => ({ opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.75, delay: d, ease: [0.22,1,0.36,1] } }),
   exit:    { opacity: 0, y: -16, filter: 'blur(6px)', transition: { duration: 0.3 } },
 };
-const stagger = { visible: { transition: { staggerChildren: 0.09 } } };
 
-const CAPABILITIES = [
-  { icon: '🎞', title: 'Frame Intelligence', desc: 'OpenCV extracts key frames every 3 seconds. Vision AI reads scenes, text, and objects with cinematic precision.', stat: '60fps', statLabel: 'Processing', color: '#7C5CFC' },
-  { icon: '🎙', title: 'Speech Recognition', desc: 'OpenAI Whisper transcribes every word with timestamps — dialogue, voiceover, ambient audio.', stat: '99%', statLabel: 'Accuracy', color: '#3DD9FF' },
-  { icon: '🧠', title: 'LLM Reasoning', desc: 'Gemini 2.0 Flash synthesizes all signals into actionable insights: hook scores, sentiment arcs, audience fit.', stat: '<3s', statLabel: 'Response', color: '#57D98D' },
-  { icon: '📈', title: 'Trend Analysis', desc: 'Cross-reference your content against viral patterns. Understand why some reels explode and others don\'t.', stat: '10M+', statLabel: 'Data Points', color: '#F5C96A' },
-];
-
-const TECH_STACK = [
-  { name: 'Gemini 2.0', role: 'LLM Core',     color: '#7C5CFC' },
-  { name: 'Whisper',    role: 'Speech AI',     color: '#3DD9FF' },
-  { name: 'OpenCV',     role: 'Vision',        color: '#57D98D' },
-  { name: 'Next.js 16', role: 'Frontend',      color: '#F8FAFC' },
-  { name: 'FastAPI',    role: 'Backend',       color: '#F5C96A' },
-  { name: 'FFmpeg',     role: 'Media Engine',  color: '#9B7BFD' },
-];
-
-function Counter({ target, suffix = '' }: { target: number; suffix?: string }) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
+/* ── Scroll-reveal hook ── */
+function useScrollReveal() {
   useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) return;
-      obs.disconnect();
-      let n = 0;
-      const step = Math.ceil(target / 60);
-      const t = setInterval(() => {
-        n = Math.min(n + step, target);
-        setVal(n);
-        if (n >= target) clearInterval(t);
-      }, 24);
-    }, { threshold: 0.5 });
-    if (ref.current) obs.observe(ref.current);
+    const els = document.querySelectorAll('.reveal');
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(el => obs.observe(el));
     return () => obs.disconnect();
-  }, [target]);
-  return <div ref={ref}>{val.toLocaleString()}{suffix}</div>;
+  }, []);
 }
 
+/* ── Nav scroll effect ── */
+function useNavScroll() {
+  useEffect(() => {
+    const nav = document.querySelector('.nav');
+    const onScroll = () => nav?.classList.toggle('scrolled', window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+}
+
+/* ── 3D card mouse tilt ── */
+function use3DCards() {
+  useEffect(() => {
+    const cards = document.querySelectorAll<HTMLElement>('.card');
+    const handlers: Array<{ el: HTMLElement; mo: (e: MouseEvent) => void; ml: () => void }> = [];
+    cards.forEach(card => {
+      const mo = (e: MouseEvent) => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width  - 0.5;
+        const y = (e.clientY - r.top)  / r.height - 0.5;
+        card.style.transform = `perspective(1000px) rotateY(${x * 10}deg) rotateX(${-y * 8}deg) scale(1.02) translateY(-6px)`;
+        card.style.boxShadow = `0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(124,92,252,0.25), ${x * 20}px ${y * 20}px 40px rgba(124,92,252,0.10)`;
+      };
+      const ml = () => {
+        card.style.transform = '';
+        card.style.boxShadow = '';
+      };
+      card.addEventListener('mousemove', mo);
+      card.addEventListener('mouseleave', ml);
+      handlers.push({ el: card, mo, ml });
+    });
+    return () => handlers.forEach(({ el, mo, ml }) => { el.removeEventListener('mousemove', mo); el.removeEventListener('mouseleave', ml); });
+  }, []);
+}
+
+
+
+/* ── Capabilities ── */
+const CAPABILITIES = [
+  { icon:'🎞', title:'Frame Intelligence', desc:'OpenCV extracts key frames every 3s. Vision AI reads scenes, text, objects and visual context with cinematic precision.', stat:'60fps', label:'Processing', color:'#7C5CFC' },
+  { icon:'🎙', title:'Speech Recognition', desc:'OpenAI Whisper transcribes every word with timestamps — dialogue, voiceover, ambient audio.', stat:'99%', label:'Accuracy', color:'#3DD9FF' },
+  { icon:'📝', title:'OCR & Text', desc:'On-screen text, captions, overlays and watermarks — all extracted and indexed for analysis.', stat:'<1s', label:'Per Frame', color:'#F5C96A' },
+  { icon:'🎵', title:'Music Detection', desc:'Identify background tracks, beats per minute, genre tags, and licensed audio fingerprints.', stat:'95%', label:'Precision', color:'#57D98D' },
+  { icon:'😊', title:'Emotion Analysis', desc:'Multi-signal emotion arc — facial micro-expressions, vocal tonality, and content sentiment combined.', stat:'12+', label:'Emotions', color:'#FFB6C1' },
+  { icon:'🧠', title:'LLM Synthesis', desc:'Gemini 2.0 Flash synthesizes all signals: hook scores, engagement prediction, audience fit analysis.', stat:'<3s', label:'Response', color:'#7C5CFC' },
+];
+
+/* ── Timeline steps ── */
+const HOW_STEPS = [
+  { num:'01', title:'Paste Your URL', desc:'Drop any Instagram Reel, YouTube Short, or TikTok link into the input. We support public and most unlisted videos.' },
+  { num:'02', title:'Frame Extraction', desc:'OpenCV samples key frames every 3 seconds, capturing the full visual arc of your content.' },
+  { num:'03', title:'Multi-Modal Analysis', desc:'Six AI engines run in parallel — vision, speech, OCR, music, emotion, and trend detection.' },
+  { num:'04', title:'LLM Synthesis', desc:'Gemini 2.0 Flash takes all raw signals and reasons across them to surface insights a human analyst would miss.' },
+  { num:'05', title:'Intelligence Report', desc:'A complete structured report: summary, transcript, entities, hook score, sentiment arc, and tailored recommendations.' },
+];
+
+/* ── Sample transcript ── */
+const TRANSCRIPT_ROWS = [
+  { time:'00:02', speaker:'Creator', text:"Okay so I've been using this productivity system for 90 days now and here's what actually changed..." },
+  { time:'00:08', speaker:'Creator', text:"The biggest mistake most people make is thinking that more apps equals more productivity..." },
+  { time:'00:15', speaker:'Creator', text:'Instead, I reduced my tool stack to just three things. And this is what my workflow looks like now.' },
+  { time:'00:24', speaker:'Creator', text:"First — a single capture inbox. Everything goes here. No exceptions, no sorting, just raw capture." },
+  { time:'00:33', speaker:'Creator', text:'Second — a weekly review block. 90 minutes every Sunday. This is the highest ROI hour of my week.' },
+];
+
+const ENTITY_TAGS = [
+  { label:'Productivity', color:'#7C5CFC', bg:'rgba(124,92,252,0.12)' },
+  { label:'90-Day Challenge', color:'#3DD9FF', bg:'rgba(61,217,255,0.10)' },
+  { label:'Workflow', color:'#F5C96A', bg:'rgba(245,201,106,0.10)' },
+  { label:'Self-Improvement', color:'#57D98D', bg:'rgba(87,217,141,0.10)' },
+  { label:'Time Management', color:'#7C5CFC', bg:'rgba(124,92,252,0.12)' },
+];
+
+/* ── Pricing plans ── */
+const PLANS = [
+  { name:'Starter', price:'$0', period:'/month', badge:'', features:['5 analyses/day','URL only','Basic report','Community support'], cta:'Get Started', featured:false },
+  { name:'Pro', price:'$29', period:'/month', badge:'Most Popular', features:['Unlimited analyses','URL + file upload','Full intelligence report','Priority processing','API access (1000 req/mo)','Email support'], cta:'Start Free Trial', featured:true },
+  { name:'Enterprise', price:'Custom', period:'contact us', badge:'', features:['Unlimited everything','Dedicated infrastructure','Custom integrations','SLA guarantee','Dedicated support'], cta:'Talk to Sales', featured:false },
+];
+
+const THEMES = [
+  { key: 'purple', name: 'Purple', color: '#7C5CFC', tooltip: 'Purple (Original)' },
+  { key: 'ocean-blue', name: 'Ocean Blue', color: '#007cff', tooltip: 'Ocean Blue' },
+  { key: 'emerald-green', name: 'Emerald Green', color: '#10b981', tooltip: 'Emerald Green' },
+  { key: 'sunset-orange', name: 'Sunset Orange', color: '#f97316', tooltip: 'Sunset Orange' },
+  { key: 'royal-gold', name: 'Royal Gold', color: '#fbbf24', tooltip: 'Royal Gold' },
+  { key: 'rose-pink', name: 'Rose Pink', color: '#ec4899', tooltip: 'Rose Pink' },
+  { key: 'ice-white', name: 'Ice White', color: '#ffffff', border: '#cbd5e1', tooltip: 'Ice White (Light)' },
+];
+
 export default function Home() {
-  const [state,       setState]       = useState<AppState>('hero');
+  const [appState,    setAppState]    = useState<AppState>('hero');
   const [jobId,       setJobId]       = useState('');
   const [result,      setResult]      = useState<any>(null);
-  const [showHistory, setShowHistory] = useState(false);
   const [urlInput,    setUrlInput]    = useState('');
-  const [pipeRunning, setPipeRunning] = useState(false);
-  const dotRef  = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
+  const [loading,     setLoading]     = useState(false);
+  const [urlError,    setUrlError]    = useState('');
+  const [activeTab,   setActiveTab]   = useState(0);
+  const [theme,       setTheme]       = useState('purple');
 
-  /* Custom cursor */
   useEffect(() => {
-    const dot = dotRef.current, ring = ringRef.current;
-    if (!dot || !ring) return;
-    let raf: number, rx = 0, ry = 0, dx = 0, dy = 0, mx = 0, my = 0;
-    const mv = (e: MouseEvent) => { mx = e.clientX; my = e.clientY; };
-    const loop = () => {
-      dx += (mx - dx) * 0.9; dy += (my - dy) * 0.9;
-      dot.style.left = `${dx}px`; dot.style.top = `${dy}px`;
-      rx += (mx - rx) * 0.12; ry += (my - ry) * 0.12;
-      ring.style.left = `${rx}px`; ring.style.top = `${ry}px`;
-      raf = requestAnimationFrame(loop);
-    };
-    window.addEventListener('mousemove', mv);
-    loop();
-    return () => { window.removeEventListener('mousemove', mv); cancelAnimationFrame(raf); };
+    const saved = localStorage.getItem('clipinsight-theme');
+    if (saved) setTheme(saved);
   }, []);
 
-  const startAnalysis = (id: string) => { setJobId(id); setState('analyzing'); };
-  const onComplete    = (data: any)  => { setResult(data); setState('results'); saveToHistory(data, jobId); };
-  const reset         = ()           => { setJobId(''); setResult(null); setState('hero'); setPipeRunning(false); };
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('clipinsight-theme', theme);
+    const event = new CustomEvent('theme-change', { detail: theme });
+    window.dispatchEvent(event);
+  }, [theme]);
 
-  const handleHeroAnalyze = () => {
-    if (!urlInput.trim()) return;
-    document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' });
-  };
+  useScrollReveal();
+  useNavScroll();
+  use3DCards();
 
-  const Nav = ({ back }: { back?: boolean }) => (
-    <nav className="nav">
-      <div className="nav-logo">
-        <div className="nav-logo-icon">✦</div>
-        <span className="nav-logo-text">Clip<span>Insight</span> AI</span>
-      </div>
-      {!back && (
-        <div className="nav-links">
-          <button className="nav-link active">Analyze</button>
-          <button className="nav-link" onClick={() => setShowHistory(true)}>History</button>
-          <button className="nav-link" onClick={() => document.getElementById('capabilities')?.scrollIntoView({ behavior: 'smooth' })}>Features</button>
-          <button className="nav-link" onClick={() => document.getElementById('tech')?.scrollIntoView({ behavior: 'smooth' })}>Stack</button>
-        </div>
-      )}
-      <div className="nav-cta">
-        {back
-          ? <button className="btn btn-secondary" onClick={reset} style={{ padding: '8px 18px', fontSize: '0.82rem' }}>← New Analysis</button>
-          : <span className="nav-badge">Beta · Free</span>
-        }
-      </div>
-    </nav>
-  );
+  /* Submit URL */
+  const handleAnalyze = useCallback(async () => {
+    const url = urlInput.trim();
+    if (!url) { setUrlError('Please paste a video URL first'); return; }
+    const valid = /https?:\/\/(www\.)?(instagram\.com|youtube\.com|youtu\.be|tiktok\.com)/.test(url);
+    if (!valid) { setUrlError('Paste an Instagram, YouTube, or TikTok URL'); return; }
+    setUrlError(''); setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND}/analyze/url`, {
+        method: 'POST', headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||`HTTP ${res.status}`); }
+      const { job_id } = await res.json();
+      setJobId(job_id);
+      setAppState('analyzing');
+    } catch(e: any) {
+      setUrlError(e.message || 'Failed — is the backend running?');
+    } finally { setLoading(false); }
+  }, [urlInput]);
+
+  const handleResult = useCallback((r: any) => {
+    setResult(r);
+    saveToHistory({ jobId, result: r, url: urlInput, timestamp: Date.now() });
+    setAppState('results');
+  }, [jobId, urlInput]);
 
   return (
     <>
-      {/* Background layers */}
+      {/* ── Fixed background layers ── */}
       <div className="bg-layer-glows">
-        <div className="bg-glow bg-glow-1" />
-        <div className="bg-glow bg-glow-2" />
-        <div className="bg-glow bg-glow-3" />
+        <div className="bg-glow bg-glow-1"/>
+        <div className="bg-glow bg-glow-2"/>
+        <div className="bg-glow bg-glow-3"/>
+        <div className="bg-glow bg-glow-4"/>
       </div>
-      <div className="bg-grid" />
-      <div className="bg-dots" />
-      <div className="scan-line" />
+      <div className="bg-grid"/>
+      <div className="bg-dots"/>
+      <div className="scan-line"/>
 
-      {/* Node network canvas */}
-      <Suspense fallback={null}>
-        <NodeNetwork />
-      </Suspense>
+      {/* ── NAV ── */}
+      <nav className="nav">
+        <div className="nav-logo">
+          <div className="nav-logo-icon">✦</div>
+          <span className="nav-logo-text">Clip<span>Insight</span> AI</span>
+        </div>
+        <div className="nav-links">
+          {['Analyze','Features','Pipeline','API','Pricing'].map(l => (
+            <button key={l} className="nav-link">{l}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div className="theme-selector-bar">
+            {THEMES.map(t => (
+              <button
+                key={t.key}
+                className={`theme-dot${theme === t.key ? ' active' : ''}`}
+                style={{
+                  background: t.color,
+                  border: t.border ? `1px solid ${t.border}` : 'none',
+                }}
+                onClick={() => setTheme(t.key)}
+                title={t.tooltip}
+              />
+            ))}
+          </div>
+          <div className="nav-badge">BETA · FREE</div>
+        </div>
+      </nav>
 
-      {/* Custom cursor */}
-      <div ref={dotRef}  className="cursor-dot" />
-      <div ref={ringRef} className="cursor-ring" />
-
+      {/* ════════════════ HERO STATE ════════════════ */}
       <AnimatePresence mode="wait">
+      {appState === 'hero' && (
+        <motion.div key="hero-state" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0,transition:{duration:0.3}}}>
 
-        {/* ══════════ HERO ══════════ */}
-        {state === 'hero' && (
-          <motion.div key="hero" variants={fade} initial="hidden" animate="visible" exit="exit"
-            style={{ position: 'relative', zIndex: 2 }}>
-            <Nav />
-
-            <section className="hero" style={{ alignItems: 'flex-start', textAlign: 'left' }}>
-              {/* Right orb visual */}
-              <div className="hero-orb-scene" aria-hidden>
-                <div className="orb-ring" />
-                <div className="orb-ring" />
-                <div className="orb-ring" />
-                <div className="hero-orb" />
-                {/* Floating stat cards */}
-                <div className="hero-stat-float" style={{ top: '22%', left: '6%' }}>
-                  <div className="float-stat-val"><Counter target={12800} suffix="+" /></div>
-                  <div className="float-stat-lbl">Reels Analyzed</div>
+          {/* ── HERO SECTION ── */}
+          <section className="hero">
+            {/* Left: content */}
+            <div className="hero-content">
+              <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
+                <div className="hero-badge">
+                  <span className="hero-badge-dot"/>
+                  POWERED BY GEMINI 2.0 FLASH · LIVE
                 </div>
-                <div className="hero-stat-float" style={{ bottom: '28%', left: '4%' }}>
-                  <div className="float-stat-val"><Counter target={99} suffix="%" /></div>
-                  <div className="float-stat-lbl">Accuracy</div>
-                </div>
-                <div className="hero-stat-float" style={{ top: '28%', right: '6%' }}>
-                  <div className="float-stat-val" style={{ fontFamily: "'Syne',sans-serif", fontSize: '1.5rem', fontWeight: 800, background: 'linear-gradient(135deg,#7C5CFC,#3DD9FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>&lt;3s</div>
-                  <div className="float-stat-lbl">Avg. Analysis</div>
-                </div>
-              </div>
-
-              <motion.div variants={stagger} initial="hidden" animate="visible"
-                style={{ position: 'relative', zIndex: 1, maxWidth: 620, textAlign: 'left' }}>
-
-                <motion.div variants={fade}>
-                  <div className="hero-badge">
-                    <div className="hero-badge-dot" />
-                    Powered by Gemini 2.0 Flash · Now in Beta
-                  </div>
-                </motion.div>
-
-                <motion.h1 className="hero-title" variants={fade}>
-                  Turn Any Reel Into<br />
-                  <span className="accent-cyan">AI Intelligence</span>
-                </motion.h1>
-
-                <motion.p className="hero-sub" variants={fade} style={{ marginLeft: 0, marginRight: 0, textAlign: 'left' }}>
-                  Paste a YouTube Short, Instagram Reel, or TikTok link.
-                  Our multi-model AI pipeline extracts frames, transcribes speech,
-                  detects emotion, and delivers a cinematic-grade intelligence report — in seconds.
-                </motion.p>
-
-                {/* Hero URL input */}
-                <motion.div variants={fade} className="hero-input-wrap">
-                  <input
-                    className="hero-input"
-                    placeholder="https://www.instagram.com/reel/..."
-                    value={urlInput}
-                    onChange={e => setUrlInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleHeroAnalyze()}
-                  />
-                  <button className="hero-input-btn" onClick={handleHeroAnalyze}>
-                    Analyze Now <span className="btn-arrow">→</span>
-                  </button>
-                </motion.div>
-
-                <motion.div variants={fade} className="hero-sub-links" style={{ justifyContent: 'flex-start' }}>
-                  <span>✓ No account needed</span>
-                  <span>✓ Free to use</span>
-                  <span>✓ Results in &lt;3 seconds</span>
-                </motion.div>
               </motion.div>
-            </section>
 
-            {/* ══════ PIPELINE SECTION ══════ */}
-            <section style={{ position: 'relative', zIndex: 2, padding: '0 40px 80px' }}>
-              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-                <div className="section-label">AI Workflow</div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <h2 className="section-title" style={{ marginBottom: 0 }}>
-                    11-Step Intelligence Pipeline
-                  </h2>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.8rem', padding: '8px 16px' }}
-                    onClick={() => setPipeRunning(r => !r)}
-                  >
-                    {pipeRunning ? '⏹ Stop' : '▶ Preview Pipeline'}
+              <motion.h1 className="hero-title" custom={0.1} variants={fadeUp} initial="hidden" animate="visible">
+                Turn Any Reel Into<br/>
+                <span className="gradient-text">AI Intelligence</span>
+              </motion.h1>
+
+              <motion.p className="hero-sub" custom={0.25} variants={fadeUp} initial="hidden" animate="visible">
+                Paste any Instagram Reel, YouTube Short, or TikTok URL. Six AI engines
+                analyze frames, speech, text, music, emotion, and trends — delivering
+                a complete intelligence report in under 60 seconds.
+              </motion.p>
+
+              <motion.div custom={0.4} variants={fadeUp} initial="hidden" animate="visible">
+                <div style={{display:'flex',gap:16,marginBottom:24,flexWrap:'wrap'}}>
+                  <button className="btn btn-primary" onClick={() => document.getElementById('hero-url')?.focus()}>
+                    <span>▶</span> Analyze a Video
+                  </button>
+                  <button className="btn btn-secondary">View API Docs</button>
+                </div>
+              </motion.div>
+
+              <motion.div className="hero-input-wrap" custom={0.55} variants={fadeUp} initial="hidden" animate="visible">
+                <div className="hero-input-bar">
+                  <span className="hero-input-icon">🔗</span>
+                  <input
+                    id="hero-url"
+                    className="hero-input"
+                    placeholder="Paste any Instagram Reel, YouTube Short or TikTok URL..."
+                    value={urlInput}
+                    onChange={e => { setUrlInput(e.target.value); setUrlError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
+                  />
+                  <button className="hero-input-btn" onClick={handleAnalyze} disabled={loading}>
+                    {loading ? <span style={{display:'inline-block',animation:'spin 1s linear infinite'}}>⟳</span> : <><span>Analyze</span><span className="arrow">→</span></>}
                   </button>
                 </div>
-                <p className="section-sub" style={{ marginBottom: 0 }}>
-                  Every analysis runs through our full model stack simultaneously.
-                </p>
-                <div className="card" style={{ marginTop: 24, padding: '8px 24px' }}>
-                  <div className="card-inner-glow" />
-                  <PipelineAnimation isRunning={pipeRunning} onComplete={() => setTimeout(() => setPipeRunning(false), 800)} />
+                {urlError && (
+                  <motion.p initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} style={{fontSize:'0.78rem',color:'#F87171',marginTop:8,paddingLeft:4,fontFamily:'var(--font-body)'}}>
+                    ⚠ {urlError}
+                  </motion.p>
+                )}
+                {/* Mockup Pills Badge */}
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '20px',
+                  padding: '6px 16px',
+                  marginTop: '16px',
+                  fontSize: '0.75rem',
+                  color: 'var(--tx-1)',
+                  fontFamily: 'var(--font-body)',
+                  width: 'fit-content'
+                }}>
+                  <span>No account needed</span>
+                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                  <span>Free</span>
+                  <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                  <span>Results in 60s</span>
                 </div>
-              </div>
-            </section>
 
-            {/* ══════ UPLOAD / ANALYZE SECTION ══════ */}
-            <section id="upload-section" style={{ position: 'relative', zIndex: 2, padding: '0 40px 96px' }}>
-              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-                <div className="section-label">Start Analyzing</div>
-                <h2 className="section-title">Drop Your Content</h2>
-                <p className="section-sub" style={{ marginBottom: 40 }}>
-                  Upload a video file or paste a social media link. The AI handles everything else.
-                </p>
-                <div className="analysis-panel">
-                  <div className="data-line" />
-                  <div style={{ position: 'absolute', top: 20, right: 20 }}>
-                    <div className="node-ping" />
+                {/* Trust Signals */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginTop: '16px', fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--tx-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    {[1,2,3,4,5].map(i => <span key={i} style={{ color: '#57D98D' }}>★</span>)}
+                    <span style={{ marginLeft: '4px' }}>Trust signals</span>
                   </div>
-                  <UploadCard onJobCreated={startAnalysis} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: '#3DD9FF' }}>✔</span>
+                    <span>200 trust signals</span>
+                  </div>
                 </div>
-              </div>
-            </section>
-
-            {/* ══════ CAPABILITIES BENTO ══════ */}
-            <section id="capabilities" style={{ position: 'relative', zIndex: 2, padding: '0 40px 96px' }}>
-              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-                <div className="section-label">AI Capabilities</div>
-                <h2 className="section-title">What the AI Reads</h2>
-                <p className="section-sub" style={{ marginBottom: 40 }}>
-                  Every frame, every word, every emotion — analyzed simultaneously.
-                </p>
-
-                {/* 2x2 + 1 wide bento */}
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gridTemplateRows: 'auto auto', gap: 16 }}>
-
-                  {/* Large hero card */}
-                  <motion.div className="card" style={{ gridColumn: 1, gridRow: '1 / 3', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 360 }}
-                    initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
-                    transition={{ duration: 0.8, ease: [0.22,1,0.36,1] }}>
-                    <div className="card-inner-glow" />
-                    <div className="card-corner-tl" /><div className="card-corner-br" />
-                    <div>
-                      <div className="capability-icon" style={{ background: 'rgba(124,92,252,0.12)', borderColor: 'rgba(124,92,252,0.25)', fontSize: '1.8rem', width: 64, height: 64 }}>🧠</div>
-                      <div className="capability-title" style={{ fontSize: '1.5rem' }}>Full-Spectrum<br />Content Intelligence</div>
-                      <p className="capability-desc" style={{ marginTop: 12, fontSize: '0.95rem', lineHeight: 1.75, maxWidth: 360 }}>
-                        ClipInsight runs 11 AI models in parallel — vision, speech, emotion, music, OCR, and trend analysis — converging into a single intelligence report that tells you exactly what works and why.
-                      </p>
-                    </div>
-                    <div>
-                      <div className="data-line" />
-                      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                        {[{ v: '11', l: 'AI Models' }, { v: '<3s', l: 'Speed' }, { v: '99%', l: 'Accuracy' }].map(s => (
-                          <div key={s.l}>
-                            <div style={{ fontFamily: "'Syne', sans-serif", fontSize: '1.6rem', fontWeight: 800, background: 'linear-gradient(135deg, #7C5CFC, #3DD9FF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{s.v}</div>
-                            <div style={{ fontSize: '0.68rem', color: 'var(--tx-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{s.l}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* Small cards */}
-                  {CAPABILITIES.slice(0,4).map((cap, i) => (
-                    <motion.div key={cap.title} className="card"
-                      style={{ gridColumn: i < 2 ? 2 : 3, gridRow: i % 2 + 1 }}
-                      initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }} transition={{ duration: 0.7, delay: i * 0.08, ease: [0.22,1,0.36,1] }}>
-                      <div className="card-inner-glow" />
-                      <div className="capability-icon" style={{ background: `${cap.color}18`, borderColor: `${cap.color}30`, marginBottom: 14 }}>{cap.icon}</div>
-                      <div className="capability-title" style={{ fontSize: '1rem' }}>{cap.title}</div>
-                      <p className="capability-desc" style={{ fontSize: '0.82rem', marginTop: 6 }}>{cap.desc}</p>
-                      <div className="stat-bar">
-                        <div className="stat-bar-val" style={{ background: `linear-gradient(135deg, ${cap.color}, #fff)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{cap.stat}</div>
-                        <div className="stat-bar-lbl">{cap.statLabel}</div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* ══════ TECH STACK ══════ */}
-            <section id="tech" style={{ position: 'relative', zIndex: 2, padding: '0 40px 96px' }}>
-              <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-                <div className="section-label">Technology</div>
-                <h2 className="section-title">Built on the Best</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginTop: 32 }}>
-                  {TECH_STACK.map((tech, i) => (
-                    <motion.div key={tech.name} className="card"
-                      style={{ textAlign: 'center', padding: '24px 16px' }}
-                      initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }} transition={{ delay: i * 0.06, duration: 0.6, ease: [0.22,1,0.36,1] }}>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: tech.color, marginBottom: 4, fontFamily: "'Syne', sans-serif" }}>{tech.name}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--tx-2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{tech.role}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Footer */}
-            <footer className="footer">
-              <div className="footer-brand">Clip<span>Insight</span> AI</div>
-              <div className="footer-meta">Built with Gemini 2.0 Flash · Whisper · OpenCV · Next.js</div>
-              <div className="footer-meta">© 2025 · Beta</div>
-            </footer>
-          </motion.div>
-        )}
-
-        {/* ══════ ANALYZING ══════ */}
-        {state === 'analyzing' && (
-          <motion.div key="analyzing" variants={fade} initial="hidden" animate="visible" exit="exit"
-            style={{ position: 'relative', zIndex: 2 }}>
-            <Nav />
-            <section className="progress-section">
-              <div style={{ maxWidth: 680, width: '100%', textAlign: 'center' }}>
-                <div className="progress-orb">🧠</div>
-                <h2 style={{ fontFamily: "'Syne', sans-serif", fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>
-                  AI is <span className="gradient-text">Processing</span>
-                </h2>
-                <p style={{ color: 'var(--tx-1)', fontSize: '0.9rem', marginBottom: 40 }}>
-                  Running 11-model pipeline — vision, speech, emotion, trends, and LLM reasoning
-                </p>
-                <PipelineAnimation isRunning={true} />
-                <div style={{ marginTop: 40 }}>
-                  <AnalysisProgress jobId={jobId} onComplete={onComplete} />
-                </div>
-              </div>
-            </section>
-          </motion.div>
-        )}
-
-        {/* ══════ RESULTS ══════ */}
-        {state === 'results' && (
-          <motion.div key="results" variants={fade} initial="hidden" animate="visible" exit="exit"
-            style={{ position: 'relative', zIndex: 2 }}>
-            <Nav back />
-            <div className="results-wrap">
-              <ResultsDashboard result={result} jobId={jobId} onReset={reset} />
+              </motion.div>
             </div>
-          </motion.div>
-        )}
 
+            {/* Right: 3D scene */}
+            <motion.div className="hero-scene-side" custom={0.2} variants={fadeUp} initial="hidden" animate="visible">
+              <HeroScene/>
+              
+              {/* High-fidelity Floating Glass Stats Panel */}
+              <motion.div 
+                style={{
+                  position: 'absolute',
+                  bottom: '24px',
+                  right: '24px',
+                  zIndex: 20,
+                  borderRadius: '16px',
+                  padding: '20px',
+                  border: '1px solid rgba(124, 92, 252, 0.3)',
+                  background: 'rgba(7, 17, 31, 0.85)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  boxShadow: 'inset 0 0 20px rgba(124, 92, 252, 0.15), 0 16px 40px rgba(0, 0, 0, 0.5)',
+                  width: '280px',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ fontSize: '10px', color: '#CBD5E1', letterSpacing: '0.05em', textTransform: 'uppercase' }}>AI Core Status</span>
+                  <span style={{ fontSize: '10px', color: '#57D98D', fontWeight: 'bold', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="hero-badge-dot" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#57D98D', boxShadow: '0 0 6px #57D98D' }}/> OPERATIONAL
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>PATHWAYS ACTIVE</span>
+                    <span style={{ color: '#3DD9FF', fontWeight: 500 }}>98.4%</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>DATA PACKETS</span>
+                    <span style={{ color: '#7C5CFC', fontWeight: 500 }}>14.7k/s</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>LATENCY RATE</span>
+                    <span style={{ color: '#F5C96A', fontWeight: 500 }}>2.1ms</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>SYSTEM UPTIME</span>
+                    <span style={{ color: '#F8FAFC', fontWeight: 500 }}>99.9%</span>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          </section>
+
+          {/* ── FEATURES BENTO ── */}
+          <section className="section" id="features">
+            <div className="section-label">Six AI Engines</div>
+            <h2 className="section-title reveal">Six Engines.<br/>One Intelligence.</h2>
+            <p className="section-sub reveal reveal-delay-1">Every video is a data source. We extract every signal simultaneously — visual, audio, textual, emotional — and synthesize them into one coherent picture.</p>
+
+            <div className="bento">
+              {/* Left Tall Card: Frame Extraction */}
+              <div className="bento-left reveal">
+                <div className="card">
+                  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+                    <div className="card-icon" style={{background:'rgba(124,92,252,0.12)'}}>🎞</div>
+                    <div>
+                      <div className="card-title">Frame Extraction & Vision AI</div>
+                      <div style={{fontSize:'0.75rem',color:'var(--tx-2)',fontFamily:'var(--font-body)'}}>Vision AI · OpenCV</div>
+                    </div>
+                  </div>
+                  <p className="card-desc">OpenCV extracts key frames every 3 seconds. Vision AI reads scenes, text, objects and full visual context with cinematic precision. Every moment is captured.</p>
+                  <div className="scan-visual" style={{ marginTop: '24px' }}>
+                    <div className="scan-line-inner"/>
+                    {[20,45,65,38,55,30,70].map((h,i) => (
+                      <div key={i} style={{position:'absolute',bottom:8,left:`${8+i*13}%`,width:8,height:h*0.6+'%',background:'rgba(124,92,252,0.3)',borderRadius:2,border:'1px solid rgba(124,92,252,0.4)'}}/>
+                    ))}
+                  </div>
+                  <div className="stat-bar" style={{ marginTop: 'auto', paddingTop: '16px' }}>
+                    <span className="stat-val">60fps</span>
+                    <span className="stat-lbl">Processing Speed</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right 2x2 Grid of Cards */}
+              <div className="bento-right-grid">
+                {/* Speech */}
+                <div className="card-wrap reveal reveal-delay-1">
+                  <div className="card" style={{ height: '100%' }}>
+                    <div className="card-icon" style={{background:'rgba(61,217,255,0.10)',borderColor:'rgba(61,217,255,0.2)'}}>🎙</div>
+                    <div className="card-title">Speech Recognition</div>
+                    <p className="card-desc">Whisper transcribes every word with timestamps.</p>
+                    <div className="waveform-visual">
+                      {[1,2,3,4,5,6,7].map(i => <div key={i} className="wave-bar" style={{animationDelay:`${(i-1)*0.12}s`}}/>)}
+                    </div>
+                    <div className="stat-bar">
+                      <span className="stat-val" style={{background:'linear-gradient(135deg,#3DD9FF,#7C5CFC)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>99%</span>
+                      <span className="stat-lbl">Accuracy</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* OCR */}
+                <div className="card-wrap reveal reveal-delay-2">
+                  <div className="card" style={{ height: '100%' }}>
+                    <div className="card-icon" style={{background:'rgba(245,201,106,0.10)',borderColor:'rgba(245,201,106,0.2)'}}>📝</div>
+                    <div className="card-title">OCR & Text</div>
+                    <p className="card-desc">On-screen text, captions, overlays extracted and indexed.</p>
+                    <div className="ocr-visual">
+                      <div className="ocr-box" style={{top:'15%',left:'8%',width:'38%',height:'22%'}}/>
+                      <div className="ocr-box" style={{top:'50%',left:'45%',width:'42%',height:'20%',animationDelay:'0.5s'}}/>
+                      <div className="ocr-box" style={{top:'72%',left:'10%',width:'30%',height:'18%',animationDelay:'1s'}}/>
+                    </div>
+                    <div className="stat-bar">
+                      <span className="stat-val" style={{background:'linear-gradient(135deg,#F5C96A,#FF9F7A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>&lt;1s</span>
+                      <span className="stat-lbl">Per Frame</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Music */}
+                <div className="card-wrap reveal reveal-delay-1">
+                  <div className="card" style={{ height: '100%' }}>
+                    <div className="card-icon" style={{background:'rgba(87,217,141,0.10)',borderColor:'rgba(87,217,141,0.2)'}}>🎵</div>
+                    <div className="card-title">Music Detection</div>
+                    <p className="card-desc">Track ID, BPM, genre, and licensed audio fingerprints.</p>
+                    <div className="ripple-visual">
+                      <div style={{width:18,height:18,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 12px rgba(87,217,141,0.6)'}}/>
+                      {[1,2,3].map(i=><div key={i} className="ripple-ring" style={{animationDelay:`${(i-1)*0.7}s`}}/>)}
+                    </div>
+                    <div className="stat-bar">
+                      <span className="stat-val" style={{background:'linear-gradient(135deg,#57D98D,#3DD9FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>95%</span>
+                      <span className="stat-lbl">Precision</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Emotion */}
+                <div className="card-wrap reveal reveal-delay-2">
+                  <div className="card" style={{ height: '100%' }}>
+                    <div className="card-icon" style={{background:'rgba(255,182,193,0.10)',borderColor:'rgba(255,182,193,0.2)'}}>😊</div>
+                    <div className="card-title">Emotion Analysis</div>
+                    <p className="card-desc">Facial expressions, vocal tone, and content sentiment combined.</p>
+                    <div style={{display:'flex',gap:6,marginTop:20,flexWrap:'wrap'}}>
+                      {[['Joy','#57D98D',85],['Trust','#7C5CFC',72],['Surprise','#F5C96A',54],['Anticipation','#3DD9FF',68]].map(([l,c,v])=>(
+                        <div key={l} style={{flex:1,minWidth:60}}>
+                          <div style={{fontSize:'0.65rem',color:'var(--tx-2)',fontFamily:'var(--font-body)',marginBottom:4}}>{l}</div>
+                          <div style={{height:4,borderRadius:4,background:'rgba(255,255,255,0.07)',overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${v}%`,background:c as string,borderRadius:4,transition:'width 1s'}}/>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="stat-bar">
+                      <span className="stat-val" style={{background:'linear-gradient(135deg,#FFB6C1,#E0A0FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>12+</span>
+                      <span className="stat-lbl">Emotions</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+
+
+          {/* ── HOW IT WORKS ── */}
+          <section className="section" id="how">
+            <div className="section-label">Process</div>
+            <h2 className="section-title reveal">From URL to<br/>Intelligence Report</h2>
+            <p className="section-sub reveal reveal-delay-1">Five steps. Under 60 seconds. Complete insight.</p>
+            <div className="timeline reveal reveal-delay-2">
+              <div className="timeline-line"/>
+              {HOW_STEPS.map((s,i) => (
+                <div className="timeline-item" key={s.num}>
+                  {i%2===0 ? (
+                    <>
+                      <div className="timeline-card" style={{textAlign:'right'}}>
+                        <div className="timeline-step">Step {s.num}</div>
+                        <div className="timeline-title">{s.title}</div>
+                        <div className="timeline-desc">{s.desc}</div>
+                      </div>
+                      <div className="timeline-node" style={{margin:'0 auto'}}>{s.num}</div>
+                      <div/>
+                    </>
+                  ) : (
+                    <>
+                      <div/>
+                      <div className="timeline-node" style={{margin:'0 auto'}}>{s.num}</div>
+                      <div className="timeline-card">
+                        <div className="timeline-step">Step {s.num}</div>
+                        <div className="timeline-title">{s.title}</div>
+                        <div className="timeline-desc">{s.desc}</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ── SAMPLE ANALYSIS ── */}
+          <section className="section" id="sample">
+            <div className="section-label">Live Demo</div>
+            <h2 className="section-title reveal">See What the AI Sees</h2>
+            <p className="section-sub reveal reveal-delay-1">A real analysis report from an actual reel — every output field your report will contain.</p>
+            <div className="analysis-showcase reveal reveal-delay-2">
+              <div className="analysis-showcase-inner">
+                <div className="analysis-sidebar">
+                  <div className="analysis-thumb">
+                    <div className="play-btn">▶</div>
+                  </div>
+                  <div className="quick-stats-title">Quick Stats</div>
+                  {[['Duration','0:47'],['Platform','Instagram'],['Hook Score','94 / 100'],['Emotion','Inspired'],['Views Est.','2.4M'],['BPM','128']].map(([l,v])=>(
+                    <div className="quick-stat" key={l}>
+                      <span className="quick-stat-lbl">{l}</span>
+                      <span className="quick-stat-val">{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="analysis-body">
+                  <div className="tabs">
+                    {['Transcript','Visual Analysis','Sentiment','Metadata'].map((t,i)=>(
+                      <button key={t} className={`tab${activeTab===i?' active':''}`} onClick={()=>setActiveTab(i)}>{t}</button>
+                    ))}
+                  </div>
+                  {activeTab===0 && (
+                    <div className="transcript-scroll">
+                      {TRANSCRIPT_ROWS.map((r,i)=>(
+                        <div className="transcript-row" key={i}>
+                          <span className="transcript-time">{r.time}</span>
+                          <div>
+                            <span className="transcript-speaker">{r.speaker}</span>
+                            <div className="transcript-text">{r.text}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {activeTab===1 && (
+                    <div>
+                      {[['Scene Type','Indoor — Home Office / Desk Setup'],['Lighting','Natural + ring light, warm temperature'],['Objects Detected','Laptop, journal, whiteboard, plants'],['Text Overlay','\"90 DAYS LATER\" — large white text, center frame'],['Color Palette','Warm neutral tones, high contrast accents']].map(([l,v])=>(
+                        <div key={l} style={{display:'flex',gap:16,padding:'12px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                          <span style={{fontSize:'0.75rem',color:'var(--tx-2)',minWidth:120,fontFamily:'var(--font-body)'}}>{l}</span>
+                          <span style={{fontSize:'0.82rem',color:'var(--tx-0)',fontFamily:'var(--font-body)'}}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {activeTab===2 && (
+                    <div>
+                      <div style={{marginBottom:20}}>
+                        <div style={{fontSize:'0.75rem',color:'var(--tx-2)',marginBottom:8,fontFamily:'var(--font-body)'}}>Overall Sentiment Arc</div>
+                        <div style={{display:'flex',gap:4,height:48,alignItems:'flex-end'}}>
+                          {[35,52,68,74,82,88,91,85,94,88].map((v,i)=>(
+                            <div key={i} style={{flex:1,height:`${v}%`,background:`linear-gradient(180deg,#7C5CFC,#3DD9FF)`,borderRadius:'3px 3px 0 0',opacity:0.7+i*0.03}}/>
+                          ))}
+                        </div>
+                        <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+                          <span style={{fontSize:'0.65rem',color:'var(--tx-3)',fontFamily:'var(--font-body)'}}>0:00</span>
+                          <span style={{fontSize:'0.65rem',color:'var(--tx-3)',fontFamily:'var(--font-body)'}}>0:47</span>
+                        </div>
+                      </div>
+                      <div className="data-line"/>
+                      {[['Primary Emotion','Inspiration → Determination'],['Emotional Intensity','High (8.4 / 10)'],['Credibility Signals','Personal testimony, specific numbers, before/after'],['Audience Fit','Productivity, self-improvement, 25-40 demographic']].map(([l,v])=>(
+                        <div key={l} style={{display:'flex',gap:16,padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                          <span style={{fontSize:'0.75rem',color:'var(--tx-2)',minWidth:140,fontFamily:'var(--font-body)'}}>{l}</span>
+                          <span style={{fontSize:'0.82rem',color:'var(--tx-0)',fontFamily:'var(--font-body)'}}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {activeTab===3 && (
+                    <div>
+                      {[['File Format','MP4 H.264'],['Resolution','1080 × 1920 (9:16)'],['Frame Rate','30 fps'],['Duration','47.2 seconds'],['Audio Codec','AAC 44.1kHz'],['File Size','18.4 MB'],['Background Music','Lofi Beats — Chill Study Mix'],['Music BPM','128'],['Licensed Audio','No copyright flags detected']].map(([l,v])=>(
+                        <div key={l} style={{display:'flex',gap:16,padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                          <span style={{fontSize:'0.75rem',color:'var(--tx-2)',minWidth:140,fontFamily:'var(--font-body)'}}>{l}</span>
+                          <span style={{fontSize:'0.82rem',color:'var(--tx-0)',fontFamily:'var(--font-mono)'}}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="entity-row">
+                    {ENTITY_TAGS.map(t=>(
+                      <span key={t.label} className="entity-tag" style={{color:t.color,background:t.bg,border:`1px solid ${t.color}30`}}>{t.label}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── API SECTION ── */}
+          <section className="section" id="api">
+            <div className="api-grid">
+              <div>
+                <div className="section-label">API Access</div>
+                <h2 className="section-title reveal">Built for Engineers</h2>
+                <p className="section-sub reveal reveal-delay-1" style={{marginBottom:36}}>Integrate ClipInsight AI into your own pipeline. REST API with job queuing, webhooks, and structured JSON responses.</p>
+                {['Simple REST API — POST a URL, get a job ID','Webhooks for async result delivery','Structured JSON — every field documented','Python & Node SDKs available','OpenAPI spec for auto-generated clients'].map((f,i)=>(
+                  <div className="api-feature reveal" key={f} style={{transitionDelay:`${i*0.08}s`}}>
+                    <div className="api-check">✓</div>
+                    <span className="api-feature-txt">{f}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="terminal reveal reveal-delay-2">
+                <div className="terminal-bar">
+                  <div className="terminal-dot" style={{background:'#FF5F57'}}/>
+                  <div className="terminal-dot" style={{background:'#FEBC2E'}}/>
+                  <div className="terminal-dot" style={{background:'#28C840'}}/>
+                  <div className="terminal-title">clipinsight-api.sh</div>
+                </div>
+                <div className="terminal-body">
+                  <div style={{color:'var(--tx-2)'}}>{'# Submit a video for analysis'}</div>
+                  <div><span style={{color:'#57D98D'}}>curl</span> <span style={{color:'#F8FAFC'}}>-X POST</span> <span style={{color:'var(--purple)'}}>https://api.clipinsight.ai/v1/analyze</span> \</div>
+                  <div style={{paddingLeft:16}}><span style={{color:'var(--cyan)'}}>-H</span> <span style={{color:'#F5C96A'}}>"Authorization: Bearer sk-..."</span> \</div>
+                  <div style={{paddingLeft:16}}><span style={{color:'var(--cyan)'}}>-d</span> <span style={{color:'#F5C96A'}}>'{`{"url":"https://www.instagram.com/reel/..."}`}'</span></div>
+                  <br/>
+                  <div style={{color:'var(--tx-2)'}}>{'# Poll for result'}</div>
+                  <div><span style={{color:'#57D98D'}}>curl</span> <span style={{color:'var(--purple)'}}>https://api.clipinsight.ai/v1/job/</span><span style={{color:'var(--cyan)'}}>{'<job_id>'}</span></div>
+                  <br/>
+                  <div style={{color:'var(--tx-2)'}}>{'# Response (truncated)'}</div>
+                  <div style={{color:'#f0f0f0'}}>{`{`}</div>
+                  <div style={{paddingLeft:16}}><span style={{color:'var(--cyan)'}}>status</span><span style={{color:'#f0f0f0'}}>: </span><span style={{color:'#F5C96A'}}>"completed"</span><span style={{color:'#f0f0f0'}}>,</span></div>
+                  <div style={{paddingLeft:16}}><span style={{color:'var(--cyan)'}}>hook_score</span><span style={{color:'#f0f0f0'}}>: </span><span style={{color:'#57D98D'}}>94</span><span style={{color:'#f0f0f0'}}>,</span></div>
+                  <div style={{paddingLeft:16}}><span style={{color:'var(--cyan)'}}>emotion</span><span style={{color:'#f0f0f0'}}>: </span><span style={{color:'#F5C96A'}}>"inspired"</span><span style={{color:'#f0f0f0'}}>,</span></div>
+                  <div style={{paddingLeft:16}}><span style={{color:'var(--cyan)'}}>topics</span><span style={{color:'#f0f0f0'}}>: [</span><span style={{color:'#F5C96A'}}>"productivity"</span><span style={{color:'#f0f0f0'}}>, ...]</span></div>
+                  <div>{`}`}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── PRICING ── */}
+          <section className="section" id="pricing">
+            <div style={{textAlign:'center',marginBottom:8}}>
+              <div className="section-label" style={{justifyContent:'center'}}>Pricing</div>
+              <h2 className="section-title reveal">Simple, Transparent Pricing</h2>
+              <p className="section-sub reveal reveal-delay-1" style={{margin:'0 auto'}}>Start free. Scale as you grow. No surprises.</p>
+            </div>
+            <div className="pricing-grid">
+              {PLANS.map((p,i)=>(
+                <div key={p.name} className={`pricing-card${p.featured?' featured':''} reveal`} style={{transitionDelay:`${i*0.12}s`}}>
+                  {p.badge && <div className="pricing-badge">{p.badge}</div>}
+                  <div className="pricing-name">{p.name}</div>
+                  <div className="pricing-price">{p.price}</div>
+                  <div className="pricing-period">{p.period}</div>
+                  <div className="pricing-divider"/>
+                  {p.features.map(f=>(
+                    <div className="pricing-feature" key={f}>
+                      <span className="pricing-check">✓</span>{f}
+                    </div>
+                  ))}
+                  <div className="pricing-cta" style={{marginTop:28}}>
+                    <button className={`btn ${p.featured?'btn-primary':'btn-secondary'}`} style={{width:'100%',justifyContent:'center'}}>
+                      {p.cta}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ── FOOTER ── */}
+          <footer className="footer">
+            <div className="footer-brand">Clip<span>Insight</span> AI</div>
+            <div className="footer-links">
+              {['Features','Pipeline','API','Pricing','Privacy'].map(l=>(
+                <a key={l} className="footer-link" href="#">{l}</a>
+              ))}
+            </div>
+            <div className="footer-copy">© 2025 ClipInsight AI. Built with Gemini 2.0, Whisper & OpenCV.</div>
+          </footer>
+
+        </motion.div>
+      )}
+
+      {/* ════════════════ ANALYZING STATE ════════════════ */}
+      {appState === 'analyzing' && (
+        <motion.div key="analyzing" initial={{opacity:0,scale:0.97}} animate={{opacity:1,scale:1}} exit={{opacity:0}} className="progress-section">
+          <div className="progress-orb">🧠</div>
+          <AnalysisProgress
+            jobId={jobId}
+            onComplete={handleResult}
+            onError={e => { setUrlError(e); setAppState('hero'); }}
+          />
+          <button className="btn btn-ghost" style={{marginTop:32}} onClick={()=>setAppState('hero')}>← Back</button>
+        </motion.div>
+      )}
+
+      {/* ════════════════ RESULTS STATE ════════════════ */}
+      {appState === 'results' && result && (
+        <motion.div key="results" initial={{opacity:0}} animate={{opacity:1}} className="results-wrap">
+          <ResultsDashboard result={result} onBack={()=>setAppState('hero')}/>
+        </motion.div>
+      )}
       </AnimatePresence>
 
-      <HistoryPanel isOpen={showHistory} onClose={() => setShowHistory(false)} onReplay={() => setShowHistory(false)} />
+      <style>{`
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes orb-breathe { 0%,100%{transform:scale(1);opacity:0.7} 50%{transform:scale(1.08);opacity:1} }
+      `}</style>
     </>
   );
 }

@@ -1482,3 +1482,269 @@ html[data-theme="ice-white"] .theme-selector-bar {
 .fadeIn { animation: fadeIn 0.4s ease; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ══════════════════════════════════════════════════════════════
+   ICE-WHITE (LIGHT MODE) — COMPREHENSIVE COMPONENT OVERRIDES
+   All dark hardcoded backgrounds are converted to white/light
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Base body + text ── */
+html[data-theme="ice-white"] body {
+  color: var(--tx-0);
+}
+
+/* ── Nav overrides ── */
+html[data-theme="ice-white"] .nav {
+  background: rgba(242, 245, 250, 0.88);
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+html[data-theme="ice-white"] .nav.scrolled {
+  background: rgba(242, 245, 250, 0.96);
+  box-shadow: 0 1px 20px rgba(15,23,42,0.08);
+}
+html[data-theme="ice-white"] .nav-link { color: var(--tx-1); }
+html[data-theme="ice-white"] .nav-link:hover { color: var(--purple); }
+html[data-theme="ice-white"] .nav-logo-text { color: var(--tx-0); }
+html[data-theme="ice-white"] .nav-badge {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--purple);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+/* ── Hero section ── */
+html[data-theme="ice-white"] .hero-badge {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.18);
+  color: var(--purple);
+}
+html[data-theme="ice-white"] .hero-sub { color: var(--tx-1); }
+html[data-theme="ice-white"] .hero-input-wrap {
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+html[data-theme="ice-white"] .hero-input {
+  background: transparent;
+  color: var(--tx-0);
+}
+html[data-theme="ice-white"] .hero-input::placeholder { color: var(--tx-3); }
+html[data-theme="ice-white"] .trust-row span,
+html[data-theme="ice-white"] .trust-row { color: var(--tx-2); }
+
+/* ── Cards (bento grid, features) ── */
+html[data-theme="ice-white"] .card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.09);
+  box-shadow: 0 2px 16px rgba(15,23,42,0.06);
+}
+html[data-theme="ice-white"] .card-title { color: var(--tx-0); }
+html[data-theme="ice-white"] .card-desc { color: var(--tx-1); }
+
+/* ── Section text ── */
+html[data-theme="ice-white"] .section-title { color: var(--tx-0); }
+html[data-theme="ice-white"] .section-sub { color: var(--tx-1); }
+html[data-theme="ice-white"] .section-label {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.18);
+  color: var(--purple);
+}
+
+/* ── Analysis page panels ── */
+html[data-theme="ice-white"] .engine-panel,
+html[data-theme="ice-white"] .orb-panel,
+html[data-theme="ice-white"] .live-message-panel,
+html[data-theme="ice-white"] .pipeline-section {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.10);
+  box-shadow: 0 2px 20px rgba(15,23,42,0.06);
+}
+html[data-theme="ice-white"] .engine-bar-wrap {
+  background: rgba(15, 23, 42, 0.08);
+}
+html[data-theme="ice-white"] .engine-label { color: var(--tx-1); }
+html[data-theme="ice-white"] .engine-percent { color: var(--tx-0); }
+html[data-theme="ice-white"] .engine-panel-title,
+html[data-theme="ice-white"] .pipeline-title { color: var(--tx-2); }
+
+/* Orb in light mode */
+html[data-theme="ice-white"] .orb-percent {
+  color: var(--tx-0);
+  text-shadow: none;
+}
+html[data-theme="ice-white"] .orb-label { color: var(--tx-2); }
+
+/* Metric mini cards */
+html[data-theme="ice-white"] .metric-mini-card {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+html[data-theme="ice-white"] .metric-mini-label { color: var(--tx-2); }
+
+/* AI companion placeholder */
+html[data-theme="ice-white"] .companion-placeholder {
+  background: rgba(37, 99, 235, 0.04);
+  border-color: rgba(37, 99, 235, 0.14);
+}
+html[data-theme="ice-white"] .companion-name { color: var(--tx-0); }
+html[data-theme="ice-white"] .companion-status { color: var(--tx-2); }
+
+/* Live message */
+html[data-theme="ice-white"] .live-message-text { color: var(--tx-1); }
+
+/* Pipeline steps */
+html[data-theme="ice-white"] .pipeline-step-icon {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.10);
+}
+html[data-theme="ice-white"] .pipeline-step-label { color: var(--tx-1); }
+html[data-theme="ice-white"] .pipeline-step-status { color: var(--tx-3); }
+html[data-theme="ice-white"] .pipeline-step-item.done .pipeline-step-icon {
+  background: rgba(5, 150, 105, 0.08);
+  border-color: rgba(5, 150, 105, 0.25);
+}
+
+/* Neural background for light mode */
+html[data-theme="ice-white"] .neural-node-label { color: var(--purple); }
+html[data-theme="ice-white"] .neural-node-dot {
+  background: var(--purple);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Success overlay for light mode */
+html[data-theme="ice-white"] .success-overlay {
+  background: rgba(242, 245, 250, 0.95);
+}
+html[data-theme="ice-white"] .success-title { color: var(--tx-0); }
+html[data-theme="ice-white"] .success-sub { color: var(--tx-1); }
+
+/* ── Results page panels ── */
+html[data-theme="ice-white"] .viral-score-card,
+html[data-theme="ice-white"] .video-overview-card,
+html[data-theme="ice-white"] .tab-content-card,
+html[data-theme="ice-white"] .radar-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.10);
+  box-shadow: 0 2px 20px rgba(15,23,42,0.06);
+}
+html[data-theme="ice-white"] .ai-card {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(15, 23, 42, 0.09);
+  box-shadow: 0 1px 10px rgba(15,23,42,0.05);
+}
+html[data-theme="ice-white"] .ai-card:hover {
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 8px 30px rgba(37, 99, 235, 0.08);
+}
+html[data-theme="ice-white"] .ai-card-bar {
+  background: rgba(15, 23, 42, 0.08);
+}
+html[data-theme="ice-white"] .ai-card-title { color: var(--tx-1); }
+html[data-theme="ice-white"] .ai-card-sub { color: var(--tx-2); }
+
+/* Viral score */
+html[data-theme="ice-white"] .viral-score-eyebrow { color: var(--tx-2); }
+html[data-theme="ice-white"] .viral-metric-lbl { color: var(--tx-2); }
+html[data-theme="ice-white"] .viral-metric-val { color: var(--tx-0); }
+
+/* Video overview */
+html[data-theme="ice-white"] .video-overview-title { color: var(--tx-2); }
+html[data-theme="ice-white"] .video-overview-row {
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+}
+html[data-theme="ice-white"] .overview-key { color: var(--tx-2); }
+html[data-theme="ice-white"] .overview-val { color: var(--tx-0); }
+
+/* Tabs */
+html[data-theme="ice-white"] .tabs-bar {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.10);
+}
+html[data-theme="ice-white"] .tab-btn { color: var(--tx-2); }
+html[data-theme="ice-white"] .tab-btn.active {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--purple);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+html[data-theme="ice-white"] .tab-btn:hover:not(.active) {
+  color: var(--tx-0);
+  background: rgba(15, 23, 42, 0.05);
+}
+
+/* Breakdown section */
+html[data-theme="ice-white"] .breakdown-section-title { color: var(--tx-2); }
+html[data-theme="ice-white"] .breakdown-section-title::after {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+/* Radar */
+html[data-theme="ice-white"] .radar-card-title { color: var(--tx-2); }
+
+/* Action buttons */
+html[data-theme="ice-white"] .btn-ghost-sm {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: var(--tx-1);
+}
+html[data-theme="ice-white"] .btn-ghost-sm:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--purple);
+}
+
+/* Results header */
+html[data-theme="ice-white"] .results-main-title { color: var(--tx-0); }
+html[data-theme="ice-white"] .results-subtitle { color: var(--tx-1); }
+
+/* Sub section labels */
+html[data-theme="ice-white"] .sub-section-label { color: var(--tx-2); }
+
+/* Data line */
+html[data-theme="ice-white"] .data-line { background: rgba(15, 23, 42, 0.08); }
+html[data-theme="ice-white"] .data-line::after {
+  background: linear-gradient(90deg, transparent, var(--purple), var(--cyan), transparent);
+}
+
+/* Pricing cards */
+html[data-theme="ice-white"] .price-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.09);
+  box-shadow: 0 2px 16px rgba(15,23,42,0.06);
+}
+html[data-theme="ice-white"] .plan-name { color: var(--tx-0); }
+html[data-theme="ice-white"] .plan-price { color: var(--tx-0); }
+html[data-theme="ice-white"] .plan-period { color: var(--tx-2); }
+html[data-theme="ice-white"] .plan-feature { color: var(--tx-1); }
+
+/* Footer */
+html[data-theme="ice-white"] footer {
+  background: rgba(226, 232, 240, 0.6);
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+html[data-theme="ice-white"] .footer-copy { color: var(--tx-2); }
+
+/* Scan visual in cards */
+html[data-theme="ice-white"] .scan-visual {
+  background: rgba(15, 23, 42, 0.03);
+  border-color: rgba(15, 23, 42, 0.06);
+}
+
+/* Timeline */
+html[data-theme="ice-white"] .timeline-line { background: rgba(15, 23, 42, 0.08); }
+html[data-theme="ice-white"] .step-num {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--purple);
+  border-color: rgba(37, 99, 235, 0.20);
+}
+html[data-theme="ice-white"] .step-title { color: var(--tx-0); }
+html[data-theme="ice-white"] .step-desc { color: var(--tx-1); }
+
+/* Social proof ticker */
+html[data-theme="ice-white"] .ticker-track span { color: var(--tx-2); }
+
+/* Gradient text stays correct on light mode */
+html[data-theme="ice-white"] .gradient-text {
+  background: var(--grad-hero);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+

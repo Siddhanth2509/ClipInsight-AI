@@ -3,17 +3,26 @@ import { useEffect, useState, useRef } from 'react';
 
 /* ── Error mapping ─────────────────────────────────────────────────────────── */
 const ERROR_MAP: Record<string, string> = {
-  private_video:     '🔒 Private video — try a public one.',
-  video_unavailable: '🔵 This video is not available. It may have been deleted.',
-  login_required:    '🔐 Login required. Try a YouTube or public Instagram URL.',
-  video_too_long:    '⏳ Video too long (max 3 min). Please try a shorter one.',
-  too_large:         '📦 Video too large (max 100MB). Try a shorter clip.',
-  default:           '⚠️ Something went wrong. Please try a different URL.',
+  private_video:      'This video is private — please try a public video.',
+  video_unavailable:  'This video is no longer available. It may have been deleted.',
+  login_required:     'Login required to access this video. Try a YouTube or public Instagram URL.',
+  video_too_long:     'Video too long — maximum is 3 minutes. Please try a shorter clip.',
+  too_large:          'Video file is too large (max 100MB). Please try a shorter clip.',
+  age_restricted:     'This video is age-restricted and cannot be accessed.',
+  not supported url:  'This URL is not supported. Please use Instagram, YouTube, or TikTok.',
+  'no video formats': 'Could not find a downloadable format for this video.',
+  'unable to extract': 'Could not extract video data. The URL may be invalid or restricted.',
+  'http error 403':   'Access denied by the video platform. Try a different URL.',
+  'http error 404':   'Video not found (404). The URL may be broken.',
+  connection:         'Could not connect to the download server. Check your internet connection.',
+  timeout:            'Download timed out. The video may be too large or the server is slow.',
+  default:            'Something went wrong while processing this video. Please try a different URL.',
 };
 
 function getFriendlyError(raw: string): string {
+  const lower = raw.toLowerCase();
   for (const [key, msg] of Object.entries(ERROR_MAP)) {
-    if (raw.toLowerCase().includes(key)) return msg;
+    if (lower.includes(key)) return msg;
   }
   return ERROR_MAP.default;
 }
@@ -69,6 +78,7 @@ export default function AnalysisProgress({ jobId, onComplete, onError }: Props) 
   const [statusStr,    setStatusStr]    = useState('queued');
   const [messages,     setMessages]     = useState<string[]>([]);
   const [error,        setError]        = useState('');
+  const [rawError,     setRawError]     = useState('');
   const [thumbnail,    setThumbnail]    = useState('');
   const [showSuccess,  setShowSuccess]  = useState(false);
   const [enginePct,    setEnginePct]    = useState<number[]>(Array(8).fill(0));
@@ -148,10 +158,11 @@ export default function AnalysisProgress({ jobId, onComplete, onError }: Props) 
 
         if (data.error) {
           const msg = getFriendlyError(data.error);
-          setError(msg);
-          onError?.(msg);
+          setError(msg);           // Show error on this page
+          setRawError(data.error); // Keep raw for debug
           doneRef.current = true;
           clearInterval(pollId);
+          // Do NOT call onError here — let user see the error and decide
           return;
         }
 
@@ -194,9 +205,84 @@ export default function AnalysisProgress({ jobId, onComplete, onError }: Props) 
 
   const latestMsg = messages[messages.length - 1] || 'Initializing pipeline...';
 
-  /* ── Render ─────────────────────────────────────────────────────────────── */
+  /* ── Render ─────────────────────────────────────────────────────── */
   return (
     <>
+      {/* ── Error screen (shown instead of progress if backend fails) ── */}
+      {error && (
+        <div style={{
+          minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexDirection: 'column', gap: 24, padding: '40px 24px', textAlign: 'center',
+          position: 'relative', zIndex: 10,
+        }}>
+          {/* Error icon */}
+          <div style={{
+            width: 90, height: 90, borderRadius: '50%',
+            background: 'rgba(239,68,68,0.10)', border: '2px solid rgba(239,68,68,0.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem',
+            boxShadow: '0 0 40px rgba(239,68,68,0.12)',
+          }}>⚠️</div>
+
+          {/* Error message */}
+          <div style={{ maxWidth: 520 }}>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 3vw, 34px)',
+              fontWeight: 800, color: 'var(--tx-0)', marginBottom: 12, letterSpacing: '-0.02em',
+            }}>Analysis Failed</h2>
+            <p style={{
+              fontSize: '1rem', color: 'var(--tx-1)', lineHeight: 1.65,
+              fontFamily: 'var(--font-body)', marginBottom: 8,
+            }}>{error}</p>
+            {rawError && rawError !== error && (
+              <details style={{ marginTop: 12 }}>
+                <summary style={{ fontSize: '0.78rem', color: 'var(--tx-3)', cursor: 'pointer' }}>Technical details</summary>
+                <pre style={{
+                  marginTop: 8, padding: '10px 14px', borderRadius: 10,
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
+                  fontSize: '0.72rem', color: 'var(--tx-2)', textAlign: 'left',
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'var(--font-mono)',
+                }}>{rawError}</pre>
+              </details>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              onClick={() => onError?.('user_back')}
+              style={{
+                padding: '12px 28px', borderRadius: 12,
+                background: 'var(--purple)', color: '#fff',
+                fontWeight: 700, fontSize: '0.9rem', border: 'none',
+                cursor: 'pointer', fontFamily: 'var(--font-body)',
+                boxShadow: '0 0 20px var(--purple-glow)',
+                transition: 'all 0.2s',
+              }}
+            >
+              ← Try Another URL
+            </button>
+          </div>
+
+          {/* Common reasons */}
+          <div style={{
+            maxWidth: 480, padding: '18px 24px', borderRadius: 16,
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+          }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--tx-3)', fontFamily: 'var(--font-body)', marginBottom: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Common reasons</p>
+            {[
+              'Video is private or age-restricted',
+              'Platform rate-limited the download (try again in a minute)',
+              'Reel/Short was deleted or is geo-blocked',
+              'Backend server is not running — check your terminal',
+            ].map((r, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+                <span style={{ color: 'var(--purple)', fontSize: '0.8rem', marginTop: 1 }}>•</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--tx-2)', fontFamily: 'var(--font-body)' }}>{r}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* ── Confetti burst ── */}
       {showSuccess && (
         <div className="confetti-container">
@@ -237,7 +323,8 @@ export default function AnalysisProgress({ jobId, onComplete, onError }: Props) 
         </div>
       )}
 
-      {/* ── Neural network background ── */}
+      {/* ── Neural network background (hidden on error) ── */}
+      {!error && (
       <div className="neural-bg" aria-hidden="true">
         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
           {NEURAL_NODES.map((n1, i) =>
@@ -267,8 +354,10 @@ export default function AnalysisProgress({ jobId, onComplete, onError }: Props) 
           </div>
         ))}
       </div>
+      )}
 
-      {/* ── Main page ── */}
+      {/* ── Main page (hidden on error) ── */}
+      {!error && (
       <div className="analyze-page">
 
         {/* Header */}
@@ -418,16 +507,8 @@ export default function AnalysisProgress({ jobId, onComplete, onError }: Props) 
         </div>
 
         {/* Error block */}
-        {error && (
-          <div style={{
-            marginTop: 20, padding: '16px 20px', borderRadius: 16,
-            background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)',
-            color: '#fca5a5', fontSize: '0.9rem', lineHeight: 1.6,
-          }}>
-            {error}
-          </div>
-        )}
       </div>
+      )}
     </>
   );
 }

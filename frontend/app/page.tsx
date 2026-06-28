@@ -131,32 +131,31 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
   const [urlError,    setUrlError]    = useState('');
   const [activeTab,   setActiveTab]   = useState(0);
   const [theme,       setTheme]       = useState('purple');
-  const autoCycleRef = useRef(true);
 
+  // On page load: if current theme is NOT ice-white, advance to the next cycled theme.
+  // This means every REFRESH shows the next theme automatically.
+  // Ice-white stays sticky (user explicitly chose light mode).
   useEffect(() => {
-    const saved = localStorage.getItem('clipinsight-theme');
-    if (saved) setTheme(saved);
-  }, []);
+    const saved = localStorage.getItem('clipinsight-theme') || 'purple';
+    // Ice-white: user chose light mode explicitly — keep it
+    if (saved === 'ice-white') {
+      setTheme('ice-white');
+      return;
+    }
+    // Advance to next dark theme in cycle
+    const idx  = CYCLABLE_THEMES.indexOf(saved as any);
+    const next = CYCLABLE_THEMES[(idx === -1 ? 0 : (idx + 1)) % CYCLABLE_THEMES.length];
+    setTheme(next);
+    localStorage.setItem('clipinsight-theme', next);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally runs only once on mount (page load / refresh)
 
+  // Apply theme to <html> element and save to localStorage whenever it changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('clipinsight-theme', theme);
-    const event = new CustomEvent('theme-change', { detail: theme });
-    window.dispatchEvent(event);
+    window.dispatchEvent(new CustomEvent('theme-change', { detail: theme }));
   }, [theme]);
-
-  // Auto-cycle themes (stops when user manually picks)
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (!autoCycleRef.current) return;
-      setTheme(prev => {
-        const idx = CYCLABLE_THEMES.indexOf(prev as any);
-        const next = idx === -1 ? 0 : (idx + 1) % CYCLABLE_THEMES.length;
-        return CYCLABLE_THEMES[next];
-      });
-    }, 5000);
-    return () => clearInterval(id);
-  }, []);
 
   useScrollReveal();
   useNavScroll();
@@ -224,8 +223,11 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
                   border: t.border ? `2px solid ${t.border}` : '2px solid rgba(255,255,255,0.2)',
                 }}
                 onClick={() => {
-                  autoCycleRef.current = false; // Stop auto-cycle on manual pick
                   setTheme(t.key);
+                  // When user manually picks a theme, save it directly.
+                  // If they pick ice-white, it will persist across refreshes.
+                  // If they pick a dark theme, the NEXT refresh will advance from it.
+                  localStorage.setItem('clipinsight-theme', t.key);
                 }}
                 title={t.tooltip}
               />

@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
+import GlobalOverlays from '@/components/GlobalOverlays';
 import '../styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'ClipInsight AI — 桜の知恵 · Sakura AI Video Analysis',
-  description: 'Experience cinematic AI video analysis. Upload a reel or paste a link from Instagram, YouTube or TikTok. ClipInsight AI extracts frames, transcribes audio, and delivers powerful insights — like sakura petals revealing hidden beauty.',
-  keywords: ['AI video analysis', 'Instagram Reels AI', 'YouTube Shorts analyzer', 'Gemini AI', 'video insights', 'sakura'],
+  title: 'ClipInsight AI — Turn Any Reel Into AI Intelligence',
+  description: 'Paste any Instagram Reel, YouTube Short, or TikTok URL. Six AI engines analyze frames, speech, text, music, emotion, and trends — delivering a complete intelligence report in under 60 seconds.',
+  keywords: ['AI video analysis', 'Instagram Reels analyzer', 'YouTube Shorts AI', 'TikTok analytics', 'Gemini AI', 'video intelligence'],
   openGraph: {
-    title: 'ClipInsight AI — 桜の知恵',
-    description: 'AI-powered video analysis with a cinematic Japanese aesthetic.',
+    title: 'ClipInsight AI — Turn Any Reel Into AI Intelligence',
+    description: 'Six AI engines. One intelligence report. Under 60 seconds.',
     type: 'website',
   },
 };
@@ -19,23 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-        {/* Inline theme init script — prevents flash-of-wrong-theme on load */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                var t = localStorage.getItem('ci-theme') || 'dark';
-                document.documentElement.setAttribute('data-theme', t);
-              } catch(e) {}
-            `,
-          }}
-        />
       </head>
       <body suppressHydrationWarning>
+        {/* Client-side global overlays: particle field, sakura, cursor */}
+        <GlobalOverlays />
         {children}
       </body>
     </html>

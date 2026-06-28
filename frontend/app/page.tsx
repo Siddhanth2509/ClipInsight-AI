@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import AnalysisProgress from '@/components/AnalysisProgress';
@@ -14,7 +14,7 @@ const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 const fadeUp = {
   hidden:  { opacity: 0, y: 32, filter: 'blur(8px)' },
-  visible: (d = 0) => ({ opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.75, delay: d, ease: [0.22,1,0.36,1] } }),
+  visible: (d = 0) => ({ opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.75, delay: d, ease: [0.22,1,0.36,1] as any } }),
   exit:    { opacity: 0, y: -16, filter: 'blur(6px)', transition: { duration: 0.3 } },
 };
 
@@ -111,16 +111,18 @@ const PLANS = [
 ];
 
 const THEMES = [
-  { key: 'purple', name: 'Purple', color: '#7C5CFC', tooltip: 'Purple (Original)' },
-  { key: 'ocean-blue', name: 'Ocean Blue', color: '#007cff', tooltip: 'Ocean Blue' },
-  { key: 'emerald-green', name: 'Emerald Green', color: '#10b981', tooltip: 'Emerald Green' },
-  { key: 'sunset-orange', name: 'Sunset Orange', color: '#f97316', tooltip: 'Sunset Orange' },
-  { key: 'royal-gold', name: 'Royal Gold', color: '#fbbf24', tooltip: 'Royal Gold' },
-  { key: 'rose-pink', name: 'Rose Pink', color: '#ec4899', tooltip: 'Rose Pink' },
-  { key: 'ice-white', name: 'Ice White', color: '#ffffff', border: '#cbd5e1', tooltip: 'Ice White (Light)' },
+  { key: 'purple',        name: 'Purple',        color: '#7C3AED', tooltip: 'Deep Purple' },
+  { key: 'ocean-blue',    name: 'Ocean Blue',    color: '#0369A1', tooltip: 'Ocean Blue' },
+  { key: 'emerald-green', name: 'Emerald Green', color: '#059669', tooltip: 'Emerald Green' },
+  { key: 'sunset-orange', name: 'Sunset Orange', color: '#EA580C', tooltip: 'Sunset Orange' },
+  { key: 'royal-gold',    name: 'Royal Gold',    color: '#B45309', tooltip: 'Royal Gold' },
+  { key: 'rose-pink',     name: 'Rose Pink',     color: '#BE185D', tooltip: 'Rose Pink' },
+  { key: 'ice-white',     name: 'Ice White',     color: '#e8f4f8', border: '#94a3b8', tooltip: 'Ice White (Light)' },
 ];
 
 export default function Home() {
+const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','royal-gold','rose-pink'] as const;
+
   const [appState,    setAppState]    = useState<AppState>('hero');
   const [jobId,       setJobId]       = useState('');
   const [result,      setResult]      = useState<any>(null);
@@ -129,6 +131,7 @@ export default function Home() {
   const [urlError,    setUrlError]    = useState('');
   const [activeTab,   setActiveTab]   = useState(0);
   const [theme,       setTheme]       = useState('purple');
+  const autoCycleRef = useRef(true);
 
   useEffect(() => {
     const saved = localStorage.getItem('clipinsight-theme');
@@ -141,6 +144,19 @@ export default function Home() {
     const event = new CustomEvent('theme-change', { detail: theme });
     window.dispatchEvent(event);
   }, [theme]);
+
+  // Auto-cycle themes (stops when user manually picks)
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!autoCycleRef.current) return;
+      setTheme(prev => {
+        const idx = CYCLABLE_THEMES.indexOf(prev as any);
+        const next = idx === -1 ? 0 : (idx + 1) % CYCLABLE_THEMES.length;
+        return CYCLABLE_THEMES[next];
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   useScrollReveal();
   useNavScroll();
@@ -169,7 +185,7 @@ export default function Home() {
 
   const handleResult = useCallback((r: any) => {
     setResult(r);
-    saveToHistory({ jobId, result: r, url: urlInput, timestamp: Date.now() });
+    saveToHistory(r, jobId);
     setAppState('results');
   }, [jobId, urlInput]);
 
@@ -205,9 +221,12 @@ export default function Home() {
                 className={`theme-dot${theme === t.key ? ' active' : ''}`}
                 style={{
                   background: t.color,
-                  border: t.border ? `1px solid ${t.border}` : 'none',
+                  border: t.border ? `2px solid ${t.border}` : '2px solid rgba(255,255,255,0.2)',
                 }}
-                onClick={() => setTheme(t.key)}
+                onClick={() => {
+                  autoCycleRef.current = false; // Stop auto-cycle on manual pick
+                  setTheme(t.key);
+                }}
                 title={t.tooltip}
               />
             ))}
@@ -305,6 +324,28 @@ export default function Home() {
                     <span>200 trust signals</span>
                   </div>
                 </div>
+              </motion.div>
+
+              {/* ── Animated Stats Counter Row ── */}
+              <motion.div custom={0.55} variants={fadeUp} initial="hidden" animate="visible"
+                style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginTop: '28px' }}>
+                {[
+                  { value: '12K+',  label: 'Videos Analyzed',   color: 'var(--purple)' },
+                  { value: '99%',   label: 'Accuracy Rate',     color: 'var(--cyan)' },
+                  { value: '<60s',  label: 'Avg. Analysis Time',color: '#57D98D' },
+                  { value: '6',     label: 'AI Engines',        color: '#F5C96A' },
+                ].map((stat, i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div style={{
+                      fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 900,
+                      color: stat.color, lineHeight: 1,
+                      textShadow: `0 0 20px ${stat.color}60`,
+                    }}>{stat.value}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--tx-3)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-body)' }}>
+                      {stat.label}
+                    </div>
+                  </div>
+                ))}
               </motion.div>
             </div>
 
@@ -686,28 +727,52 @@ export default function Home() {
 
       {/* ════════════════ ANALYZING STATE ════════════════ */}
       {appState === 'analyzing' && (
-        <motion.div key="analyzing" initial={{opacity:0,scale:0.97}} animate={{opacity:1,scale:1}} exit={{opacity:0}} className="progress-section">
-          <div className="progress-orb">🧠</div>
+        <motion.div key="analyzing" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
           <AnalysisProgress
             jobId={jobId}
             onComplete={handleResult}
             onError={e => { setUrlError(e); setAppState('hero'); }}
           />
-          <button className="btn btn-ghost" style={{marginTop:32}} onClick={()=>setAppState('hero')}>← Back</button>
         </motion.div>
       )}
 
       {/* ════════════════ RESULTS STATE ════════════════ */}
       {appState === 'results' && result && (
         <motion.div key="results" initial={{opacity:0}} animate={{opacity:1}} className="results-wrap">
-          <ResultsDashboard result={result} onBack={()=>setAppState('hero')}/>
+          <ResultsDashboard result={result} jobId={jobId} onReset={() => setAppState('hero')}/>
         </motion.div>
       )}
       </AnimatePresence>
 
       <style>{`
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes orb-breathe { 0%,100%{transform:scale(1);opacity:0.7} 50%{transform:scale(1.08);opacity:1} }
+        @keyframes orb-breathe { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.1);opacity:1} }
+        .hook-bar-track { height: 8px; background: rgba(255,255,255,0.06); border-radius: 100px; overflow: hidden; }
+        .hook-bar-fill {
+          height: 100%; border-radius: 100px;
+          background: linear-gradient(90deg, var(--purple), var(--cyan));
+          transition: width 1.5s ease;
+        }
+        .suggestion-item {
+          display: flex; align-items: flex-start; gap: 14px;
+          padding: 14px 18px; margin-bottom: 10px;
+          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+          border-radius: 12px;
+        }
+        .suggestion-num {
+          width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+          background: var(--purple-dim); border: 1px solid var(--purple-glow);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.78rem; font-weight: 700; color: var(--purple);
+        }
+        .tag-chip {
+          display: inline-block; padding: 4px 12px; border-radius: 100px;
+          background: rgba(124,92,252,0.08); color: var(--purple);
+          border: 1px solid rgba(124,92,252,0.18);
+          font-size: 0.78rem; font-family: var(--font-body);
+          font-weight: 500;
+        }
+        .results-wrap { position: relative; z-index: 3; }
       `}</style>
     </>
   );

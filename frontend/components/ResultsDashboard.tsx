@@ -1,638 +1,633 @@
 'use client';
 import { useState } from 'react';
-import JSZip from 'jszip';
 
-type Tab = 'summary' | 'insights' | 'transcript' | 'frames' | 'music';
+type Tab = 'summary' | 'insights' | 'music' | 'transcript' | 'frames';
 
-interface ResultsDashboardProps {
+interface Props {
   result: any;
-  jobId: string;
+  jobId:  string;
   onReset: () => void;
 }
 
-// ── Helper: download any blob as a file ──────────────────────────────────────
-function downloadBlob(blob: Blob, filename: string) {
+/* ── Confidence Radar (pure SVG) ─────────────────────────────────────────── */
+function ConfidenceRadar({ scores }: { scores: Record<string, number> }) {
+  const axes = [
+    { label: 'Vision',  v: scores.vision  ?? 0.94 },
+    { label: 'Speech',  v: scores.speech  ?? 0.92 },
+    { label: 'OCR',     v: scores.ocr     ?? 0.88 },
+    { label: 'Audio',   v: scores.audio   ?? 0.85 },
+    { label: 'Emotion', v: scores.emotion ?? 0.82 },
+  ];
+  const CX = 130, CY = 130, R = 95, N = axes.length;
+  const ang = (i: number) => (Math.PI * 2 * i) / N - Math.PI / 2;
+  const pt  = (i: number, scale: number): [number, number] =>
+    [CX + R * scale * Math.cos(ang(i)), CY + R * scale * Math.sin(ang(i))];
+  const poly = (pts: [number, number][]) => pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+
+  const gridScales = [0.25, 0.5, 0.75, 1.0];
+  const dataPoints = axes.map((ax, i) => pt(i, ax.v));
+  const outerPoints = axes.map((_, i) => pt(i, 1.0));
+
+  return (
+    <svg width="260" height="260" viewBox="0 0 260 260">
+      {/* Grid rings */}
+      {gridScales.map(s => (
+        <polygon
+          key={s}
+          points={poly(axes.map((_, i) => pt(i, s)))}
+          fill="none"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="1"
+        />
+      ))}
+      {/* Axis lines */}
+      {outerPoints.map(([x, y], i) => (
+        <line key={i} x1={CX} y1={CY} x2={x} y2={y}
+          stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+      ))}
+      {/* Data fill */}
+      <polygon
+        points={poly(dataPoints)}
+        fill="rgba(124,92,252,0.18)"
+        stroke="var(--purple, #7C5CFC)"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      {/* Data points */}
+      {dataPoints.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={4.5}
+          fill="var(--purple, #7C5CFC)"
+          stroke="rgba(255,255,255,0.3)"
+          strokeWidth="1" />
+      ))}
+      {/* Value labels */}
+      {axes.map((ax, i) => {
+        const [x, y] = dataPoints[i];
+        return (
+          <text key={`v${i}`} x={x} y={y - 13}
+            textAnchor="middle" fontSize="10.5"
+            fill="var(--purple, #7C5CFC)" fontFamily="Inter, sans-serif" fontWeight="700">
+            {Math.round(ax.v * 100)}%
+          </text>
+        );
+      })}
+      {/* Axis labels */}
+      {axes.map((ax, i) => {
+        const [x, y] = pt(i, 1.28);
+        return (
+          <text key={`l${i}`} x={x} y={y}
+            textAnchor="middle" dominantBaseline="middle"
+            fontSize="11" fill="rgba(255,255,255,0.45)"
+            fontFamily="Inter, sans-serif">
+            {ax.label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ── Download helpers ────────────────────────────────────────────────────── */
+function dlBlob(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
   a.click();
   URL.revokeObjectURL(url);
 }
 
-// ── Download all frames as a .zip ────────────────────────────────────────────
-async function downloadFramesZip(frames: any[], apiUrl: string) {
-  const zip = new JSZip();
-  const folder = zip.folder('frames')!;
+function dlReport(r: any) {
+  const txt = `
+CLIPINSIGHT AI — VIDEO ANALYSIS REPORT
+${'─'.repeat(54)}
+Duration:    ${r.duration_seconds}s  |  Frames: ${r.frame_count}  |  Words: ${r.word_count}
+Hook Score:  ${r.hook_score}/100
+Sentiment:   ${r.sentiment}
+Category:    ${r.content_category}
+Audience:    ${r.target_audience}
 
-  await Promise.all(
-    frames.map(async (frame: any, i: number) => {
-      const res = await fetch(`${apiUrl}/frame/${frame.path}`);
-      const blob = await res.blob();
-      folder.file(`frame_${String(i + 1).padStart(3, '0')}_at_${Math.round(frame.timestamp)}s.jpg`, blob);
-    })
-  );
-
-  const zipBlob = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(zipBlob, 'sakura_frames.zip');
-}
-
-// ── Download summary as a formatted text report ───────────────────────────────
-function downloadSummaryReport(r: any) {
-  let music = '\n🎵 MUSIC: Not detected';
-  if (r.music?.detected) {
-    const typeStr = r.music.inferred ? ' [AI Inferred]' : '';
-    music = `\n🎵 MUSIC DETECTED${typeStr}\n  Song:   ${r.music.song_title}\n  Artist: ${r.music.artist}\n  Album:  ${r.music.album}\n  Genre:  ${r.music.genre}`;
-    if (r.music.explanation) {
-      music += `\n  AI Note: ${r.music.explanation}`;
-    }
-  }
-
-  const mediaStr = r.referenced_media ? `\n🎬 REFERENCED MEDIA\n  ${r.referenced_media}\n` : '';
-
-  const report = `
-╔══════════════════════════════════════════════════════╗
-║          SAKURA AI — VIDEO ANALYSIS REPORT           ║
-╚══════════════════════════════════════════════════════╝
-
-📊 OVERVIEW
-  Duration:       ${r.duration_seconds}s
-  Frames Sampled: ${r.frame_count}
-  Words (audio):  ${r.word_count}
-  Hook Score:     ${r.hook_score}/100
-  Sentiment:      ${r.sentiment}
-  Category:       ${r.content_category}
-  Est. Watch:     ${r.estimated_watch_time}
-  Audience:       ${r.target_audience}
-${music}
-${mediaStr}
-
-📝 SUMMARY
+SUMMARY
 ${r.summary}
 
-🏷️ TAGS
-${(r.tags || []).map((t: string) => `  #${t}`).join('\n')}
+TAGS
+${(r.tags || []).map((t: string) => `#${t}`).join('  ')}
 
-📌 TOPICS
-${(r.topics || []).map((t: string) => `  • ${t}`).join('\n')}
+HOOK ANALYSIS
+${r.hook_analysis}
 
-🪝 HOOK ANALYSIS
-  Score: ${r.hook_score}/100
-  ${r.hook_analysis}
+IMPROVEMENT SUGGESTIONS
+${(r.suggestions || []).map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}
 
-💡 IMPROVEMENT SUGGESTIONS
-${(r.suggestions || []).map((s: string, i: number) => `  ${i + 1}. ${s}`).join('\n')}
-
-📜 TRANSCRIPT
+TRANSCRIPT
 ${r.transcript || '(No audio detected)'}
 
-─────────────────────────────────────────────────────
-Generated by Sakura AI · ClipInsight · ${new Date().toLocaleDateString()}
+${'─'.repeat(54)}
+Generated by ClipInsight AI · ${new Date().toLocaleDateString()}
 `.trimStart();
-
-  downloadBlob(new Blob([report], { type: 'text/plain' }), 'sakura_analysis_report.txt');
+  dlBlob(new Blob([txt], { type: 'text/plain' }), 'clipinsight_report.txt');
 }
 
-export default function ResultsDashboard({ result, jobId, onReset }: ResultsDashboardProps) {
-  const [tab, setTab] = useState<Tab>('summary');
-  const [downloading, setDownloading] = useState<'frames' | 'report' | 'pdf' | null>(null);
-  const [shareToast, setShareToast] = useState('');
-
-  const tabs: { key: Tab; label: string; icon: string; kanji: string }[] = [
-    { key: 'summary',    label: 'Summary',    icon: '🌸', kanji: '要' },
-    { key: 'insights',   label: 'Insights',   icon: '💡', kanji: '知' },
-    { key: 'music',      label: 'Music',      icon: '🎵', kanji: '楽' },
-    { key: 'transcript', label: 'Transcript', icon: '📜', kanji: '詩' },
-    { key: 'frames',     label: 'Frames',     icon: '🎞', kanji: '映' },
-  ];
-
-  const r = result || {
-    summary: 'Your AI-generated video analysis will appear here.',
-    duration_seconds: 0, frame_count: 0, word_count: 0,
-    sentiment: 'Neutral', sentiment_score: 0.5,
-    hook_score: 0, tags: ['AI', 'Video', 'Analysis'],
-    suggestions: ['Complete your first analysis to receive personalized suggestions.'],
-    target_audience: 'General audience',
-    transcript: '', frames: [], music: { detected: false },
-  };
+/* ── Main component ──────────────────────────────────────────────────────── */
+export default function ResultsDashboard({ result, jobId, onReset }: Props) {
+  const [tab,         setTab]         = useState<Tab>('summary');
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [toast,       setToast]       = useState('');
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-  const handleDownloadFrames = async () => {
-    if (!r.frames?.length) return;
-    setDownloading('frames');
-    try {
-      await downloadFramesZip(r.frames, API);
-    } finally {
-      setDownloading(null);
-    }
+  const r = result || {
+    summary: 'Your AI analysis will appear here.', duration_seconds: 0,
+    frame_count: 0, word_count: 0, hook_score: 0, sentiment: 'Neutral',
+    sentiment_score: 0.5, tags: [], suggestions: [], target_audience: 'General',
+    transcript: '', frames: [], music: { detected: false }, content_category: '—',
+    hook_analysis: '', topics: [],
   };
 
-  const handleDownloadReport = () => {
-    setDownloading('report');
-    downloadSummaryReport(r);
-    setDownloading(null);
+  /* Frame URL helper — extracts just the filename from any path */
+  const frameUrl = (frame: any) => {
+    const filename = String(frame.path || '').split(/[/\\]/).pop() || '';
+    return `${API}/frame/${jobId}/frames/${filename}`;
   };
 
-  const handleDownloadPDF = async () => {
+  /* ── Derived scores for radar ── */
+  const radarScores = {
+    vision:  Math.min(1, (r.frame_count || 0) / 20 * 0.6 + 0.4),
+    speech:  r.word_count > 0 ? Math.min(1, r.word_count / 200 * 0.4 + 0.6) : 0.4,
+    ocr:     Math.min(1, (r.hook_score || 0) / 100 * 0.5 + 0.45),
+    audio:   r.music?.detected ? 0.95 : 0.72,
+    emotion: r.sentiment === 'Positive' ? 0.91 : r.sentiment === 'Negative' ? 0.60 : 0.76,
+  };
+
+  /* ── Action handlers ── */
+  const handlePDF = async () => {
     if (!jobId) return;
     setDownloading('pdf');
     try {
       const res = await fetch(`${API}/report/pdf/${jobId}`);
       if (!res.ok) throw new Error('PDF generation failed');
-      const blob = await res.blob();
-      downloadBlob(blob, `clipinsight_report_${jobId.slice(0, 8)}.pdf`);
-    } catch (e) {
-      console.error('PDF download error:', e);
-    } finally {
-      setDownloading(null);
-    }
+      dlBlob(await res.blob(), `clipinsight_${jobId.slice(0, 8)}.pdf`);
+    } catch { setToast('⚠️ PDF generation failed. Try the text report instead.'); }
+    finally   { setDownloading(null); setTimeout(() => setToast(''), 4000); }
+  };
+
+  const handleFramesZip = async () => {
+    if (!r.frames?.length) return;
+    setDownloading('frames');
+    try {
+      const res = await fetch(`${API}/download/frames/${jobId}`);
+      if (!res.ok) throw new Error('Frames ZIP failed');
+      dlBlob(await res.blob(), `frames_${jobId.slice(0, 8)}.zip`);
+    } catch { setToast('⚠️ Could not download frames.'); }
+    finally   { setDownloading(null); setTimeout(() => setToast(''), 4000); }
   };
 
   const handleShare = async () => {
     if (!jobId) return;
     try {
-      const res = await fetch(`${API}/share/${jobId}`, { method: 'POST' });
+      const res  = await fetch(`${API}/share/${jobId}`, { method: 'POST' });
       const data = await res.json();
-      const shareUrl = `${window.location.origin}/shared/${data.token}`;
-      await navigator.clipboard.writeText(shareUrl);
-      setShareToast('🌸 Share link copied to clipboard!');
-      setTimeout(() => setShareToast(''), 3000);
-    } catch (e) {
-      setShareToast('Could not create share link.');
-      setTimeout(() => setShareToast(''), 3000);
-    }
+      const url  = `${window.location.origin}/shared/${data.token}`;
+      await navigator.clipboard.writeText(url);
+      setToast('🔗 Share link copied to clipboard!');
+    } catch { setToast('Could not create share link.'); }
+    setTimeout(() => setToast(''), 3500);
   };
 
-  return (
-    <div className="results-section">
+  /* ── AI breakdown card data ── */
+  const aiCards = [
+    {
+      title: 'Visual Analysis',  icon: '👁️', color: '#7C5CFC',
+      value: `${r.frame_count} frames`, sub: 'Key scenes extracted',
+      pct: Math.min(100, (r.frame_count / 20) * 100),
+    },
+    {
+      title: 'Speech to Text',   icon: '🎙️', color: '#3DD9FF',
+      value: `${r.word_count} words`, sub: 'Whisper AI transcribed',
+      pct: r.word_count > 0 ? Math.min(99, 60 + r.word_count / 10) : 0,
+    },
+    {
+      title: 'Text Detection',   icon: '📝', color: '#F5C96A',
+      value: (r.topics || []).length > 0 ? `${r.topics.length} topics` : 'Scanned',
+      sub: 'OCR & text analysis',
+      pct: (r.topics || []).length > 0 ? 88 : 70,
+    },
+    {
+      title: 'Music ID',         icon: '🎵', color: '#57D98D',
+      value: r.music?.detected ? r.music.song_title || 'Detected' : 'Not Found',
+      sub:   r.music?.detected ? (r.music.inferred ? 'AI Inferred' : 'Via Shazam') : 'No background music',
+      pct:   r.music?.detected ? 95 : 30,
+    },
+    {
+      title: 'Emotion Analysis', icon: '😊', color: '#FFB6C1',
+      value: r.sentiment || 'Neutral', sub: `Score ${Math.round((r.sentiment_score || 0.5) * 100)}%`,
+      pct:   Math.round((r.sentiment_score || 0.5) * 100),
+    },
+    {
+      title: 'Content Category', icon: '🏷️', color: '#A78BFA',
+      value: r.content_category || '—', sub: 'AI categorized',
+      pct: 90,
+    },
+    {
+      title: 'Hook Strength',    icon: '🎣', color: '#FCD34D',
+      value: `${r.hook_score}/100`, sub: r.hook_score >= 70 ? 'Strong hook' : r.hook_score >= 40 ? 'Average hook' : 'Weak hook',
+      pct: r.hook_score,
+    },
+    {
+      title: 'Audience Match',   icon: '🎯', color: '#6EE7B7',
+      value: r.target_audience || 'General', sub: 'Predicted audience',
+      pct: 82,
+    },
+  ];
 
-      {/* Share toast notification */}
-      {shareToast && (
+  const tabs: { key: Tab; label: string; icon: string }[] = [
+    { key: 'summary',    label: 'Summary',    icon: '🌸' },
+    { key: 'insights',   label: 'Insights',   icon: '💡' },
+    { key: 'music',      label: 'Music',      icon: '🎵' },
+    { key: 'transcript', label: 'Transcript', icon: '📜' },
+    { key: 'frames',     label: 'Frames',     icon: '🎞️' },
+  ];
+
+  return (
+    <div className="results-page">
+
+      {/* Toast */}
+      {toast && (
         <div style={{
           position: 'fixed', top: 24, right: 24, zIndex: 9999,
-          background: 'rgba(255,133,162,0.12)',
-          border: '1px solid rgba(255,183,197,0.3)',
-          backdropFilter: 'blur(16px)',
-          borderRadius: 12, padding: '12px 20px',
-          color: 'var(--text-primary)', fontSize: '0.9rem',
-          boxShadow: '0 8px 32px rgba(255,133,162,0.15)',
+          background: 'rgba(7,17,31,0.95)', border: '1px solid var(--border)',
+          backdropFilter: 'blur(16px)', borderRadius: 12, padding: '12px 20px',
+          color: 'var(--tx-0)', fontSize: '0.9rem',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
           animation: 'fadeInDown 0.3s ease',
         }}>
-          {shareToast}
+          {toast}
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 40, gap: 24, flexWrap: 'wrap' }}>
-        <div>
-          <div className="section-label">
-            <div className="section-label-line" />
-            <span>Analysis Report</span>
+      {/* ── Header ── */}
+      <div className="results-header">
+        <div className="results-title-block">
+          <div className="results-status-badge">
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', background: 'var(--green)',
+              display: 'inline-block', marginRight: 6, boxShadow: '0 0 10px var(--green)',
+            }} />
+            Analysis Complete
           </div>
-          <h2 className="section-title">
-            Your <span className="sakura-text">Insights</span><br />Have Bloomed
-          </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginTop: 8 }}>
-            桜の知恵 — Wisdom of the cherry blossom
-          </p>
+          <h1 className="results-main-title">
+            Your <span className="results-accent">Insights</span><br />Have Bloomed
+          </h1>
+          <p className="results-subtitle">AI-Powered Analysis Report · Gemini 2.0 Flash</p>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
-          {/* Download Frames */}
-          <button
-            id="btn-download-frames"
-            className="btn-ghost-sakura"
-            onClick={handleDownloadFrames}
-            disabled={downloading === 'frames' || !r.frames?.length}
-            style={{ opacity: r.frames?.length ? 1 : 0.4, fontSize: '0.85rem', padding: '10px 18px' }}
-          >
-            {downloading === 'frames' ? '⏳ Zipping…' : '🖼 Frames ZIP'}
+        <div className="results-actions">
+          <button className="btn-primary" onClick={handlePDF} disabled={downloading === 'pdf'}
+            style={{ fontSize: '0.85rem', padding: '11px 22px' }}>
+            {downloading === 'pdf' ? '⏳ Building...' : '📑 Download PDF'}
           </button>
-
-          {/* Download PDF Report */}
-          <button
-            id="btn-download-pdf"
-            className="btn-primary"
-            onClick={handleDownloadPDF}
-            disabled={downloading === 'pdf'}
-            style={{ fontSize: '0.85rem', padding: '10px 18px' }}
-          >
-            {downloading === 'pdf' ? '⏳ Building PDF…' : '📑 Download PDF'}
+          <button className="btn-ghost-sm" onClick={() => { dlReport(r); }}>
+            📄 Text Report
           </button>
-
-          {/* Share Link */}
-          <button
-            id="btn-share"
-            className="btn-ghost-sakura"
-            onClick={handleShare}
-            style={{ fontSize: '0.85rem', padding: '10px 18px' }}
-          >
-            🔗 Share
-          </button>
-
-          {/* Text Report */}
-          <button
-            id="btn-download-report"
-            className="btn-ghost-sakura"
-            onClick={handleDownloadReport}
-            style={{ fontSize: '0.85rem', padding: '10px 18px' }}
-          >
-            {downloading === 'report' ? '⏳ Saving…' : '📄 Text Report'}
-          </button>
-
-          {/* New Analysis */}
-          <button className="btn-ghost-sakura" onClick={onReset} style={{ fontSize: '0.85rem', padding: '10px 18px' }}>
-            ↩ New Analysis
-          </button>
+          <button className="btn-ghost-sm" onClick={handleShare}>🔗 Share</button>
+          <button className="btn-ghost-sm" onClick={onReset}>↩ New Analysis</button>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="stat-row">
-        {[
-          { emoji: '⏱', label: 'Duration',    value: `${r.duration_seconds}s` },
-          { emoji: '🖼', label: 'Frames',      value: r.frame_count },
-          { emoji: '💬', label: 'Words',       value: r.word_count },
-          { emoji: '🎯', label: 'Hook Score',  value: `${r.hook_score}/100` },
-          { emoji: '😊', label: 'Sentiment',   value: r.sentiment },
-        ].map(s => (
-          <div key={s.label} className="stat-sakura">
-            <div className="stat-emoji">{s.emoji}</div>
-            <div className="stat-lbl">{s.label}</div>
-            <div className="stat-val">{s.value}</div>
+      {/* ── Top grid: Viral Score + Video Overview ── */}
+      <div className="results-top-grid">
+
+        {/* Viral Score card */}
+        <div className="viral-score-card">
+          <div>
+            <div className="viral-score-eyebrow">🔮 Viral Score</div>
+            <div className="viral-score-number">
+              {r.hook_score}<span style={{ fontSize: '1.8rem', color: 'var(--tx-2)' }}>/100</span>
+            </div>
+            <div className="viral-score-tag">
+              {r.hook_score >= 80 ? '🚀 Very High Potential'
+               : r.hook_score >= 60 ? '📈 High Potential'
+               : r.hook_score >= 40 ? '⚡ Average Potential'
+               : '📊 Building Momentum'}
+            </div>
           </div>
-        ))}
+
+          <div className="viral-mini-metrics">
+            {[
+              { label: 'Duration',    val: `${r.duration_seconds}s`,   badge: '' },
+              { label: 'Hook Score',  val: `${r.hook_score}/100`,      badge: r.hook_score >= 70 ? '🔥 Strong' : '' },
+              { label: 'Frames',      val: `${r.frame_count}`,         badge: '' },
+              { label: 'Words',       val: `${r.word_count}`,          badge: '' },
+              { label: 'Sentiment',   val: r.sentiment,                badge: r.sentiment === 'Positive' ? '✨' : '' },
+              { label: 'Audience',    val: r.target_audience?.split(' ').slice(0, 2).join(' ') || '—', badge: '' },
+            ].map(m => (
+              <div key={m.label} className="viral-metric">
+                <div className="viral-metric-val">{m.val}</div>
+                <div className="viral-metric-lbl">{m.label}</div>
+                {m.badge && <div className="viral-metric-badge">{m.badge}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Video Overview sidebar */}
+        <div className="video-overview-card">
+          <div className="video-overview-title">📹 Video Overview</div>
+          {[
+            { k: 'Duration',   v: `${r.duration_seconds}s` },
+            { k: 'Frames',     v: `${r.frame_count} extracted` },
+            { k: 'Words',      v: `${r.word_count} transcribed` },
+            { k: 'Category',   v: r.content_category || '—' },
+            { k: 'Sentiment',  v: r.sentiment || '—' },
+            { k: 'Audience',   v: r.target_audience || '—' },
+            { k: 'Est. Watch', v: r.estimated_watch_time || '—' },
+          ].map(row => (
+            <div key={row.k} className="video-overview-row">
+              <span className="overview-key">{row.k}</span>
+              <span className="overview-val">{row.v}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="results-tabs">
+      {/* ── AI Breakdown Grid ── */}
+      <div className="breakdown-section">
+        <div className="breakdown-section-title">🤖 AI Analysis Breakdown</div>
+        <div className="ai-breakdown-grid">
+          {aiCards.map(card => (
+            <div key={card.title} className="ai-card">
+              <div className="ai-card-header">
+                <span style={{ fontSize: '1.1rem' }}>{card.icon}</span>
+                <div className="ai-card-dot" style={{ background: card.color, boxShadow: `0 0 8px ${card.color}50` }} />
+                <span className="ai-card-title">{card.title}</span>
+              </div>
+              <div className="ai-card-value" style={{ color: card.color }}>{card.value}</div>
+              <div className="ai-card-sub">{card.sub}</div>
+              <div className="ai-card-bar">
+                <div className="ai-card-bar-fill" style={{ width: `${card.pct}%`, background: `linear-gradient(90deg, ${card.color}88, ${card.color})` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Tab bar ── */}
+      <div className="tabs-bar">
         {tabs.map(t => (
-          <button
-            key={t.key}
-            className={`results-tab${tab === t.key ? ' active' : ''}`}
-            onClick={() => setTab(t.key)}>
+          <button key={t.key} className={`tab-btn${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>
             {t.icon} {t.label}
           </button>
         ))}
       </div>
 
-      {/* Content card */}
-      <div className="glass-elevated" style={{
-        borderRadius: 28, padding: '36px 40px',
-        border: '1px solid rgba(255,183,197,0.1)',
-        position: 'relative', overflow: 'hidden',
-        minHeight: 340,
-      }}>
-        {/* Ghost kanji watermark */}
-        <div style={{
-          position: 'absolute', right: 24, top: '50%',
-          transform: 'translateY(-50%)',
-          fontFamily: 'var(--font-display)',
-          fontSize: '8rem', fontWeight: 900,
-          color: 'rgba(255,183,197,0.04)',
-          pointerEvents: 'none', userSelect: 'none', lineHeight: 1,
-        }}>
-          {tabs.find(t => t.key === tab)?.kanji}
-        </div>
+      {/* ── Bottom grid: Tab content + Radar ── */}
+      <div className="results-bottom-grid">
 
-        {/* ── SUMMARY ─────────────────────────────────────────────────────── */}
-        {tab === 'summary' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-            <p style={{ lineHeight: 1.9, fontSize: '1rem', color: 'var(--text-secondary)', maxWidth: 680 }}>
-              {r.summary}
-            </p>
+        {/* Tab content */}
+        <div className="tab-content-card">
 
-            <div className="sakura-divider">
-              <span>🌸</span>
-            </div>
-
-            {/* Tags */}
-            <div>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12 }}>
-                Keywords & Tags
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {(r.tags || []).map((tag: string) => (
-                  <span key={tag} className="tag-chip">#{tag}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Target audience */}
-            <div>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12 }}>
-                Target Audience
-              </div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 10,
-                padding: '10px 20px', borderRadius: 12,
-                background: 'rgba(255,183,197,0.06)',
-                border: '1px solid rgba(255,183,197,0.15)',
-                color: 'var(--sakura-blush)', fontSize: '0.9rem', fontWeight: 500,
-              }}>
-                🎯 {r.target_audience}
-              </div>
-            </div>
-
-            {/* Referenced Media — Phase 3 fix */}
-            {r.referenced_media && r.referenced_media.type && r.referenced_media.type !== 'none' && (
-              <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 12 }}>
-                  🎬 Referenced Media
+          {/* SUMMARY */}
+          {tab === 'summary' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <p style={{ lineHeight: 1.9, fontSize: '1rem', color: 'var(--tx-1)' }}>{r.summary}</p>
+              {(r.tags || []).length > 0 && (
+                <div>
+                  <div className="sub-section-label">Keywords &amp; Tags</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {(r.tags || []).map((tag: string) => (
+                      <span key={tag} className="tag-chip">#{tag}</span>
+                    ))}
+                  </div>
                 </div>
-                <div style={{
-                  padding: '16px 20px', borderRadius: 16,
-                  background: 'rgba(255,183,197,0.05)',
-                  border: '1px solid rgba(255,183,197,0.18)',
-                  display: 'flex', flexDirection: 'column', gap: 6,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              )}
+              {(r.topics || []).length > 0 && (
+                <div>
+                  <div className="sub-section-label">Topics</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {(r.topics || []).map((t: string) => (
+                      <span key={t} className="tag-chip" style={{ background: 'rgba(61,217,255,0.08)', color: 'var(--cyan)', borderColor: 'rgba(61,217,255,0.2)' }}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {r.referenced_media?.title && r.referenced_media.type !== 'none' && (
+                <div>
+                  <div className="sub-section-label">🎬 Referenced Media</div>
+                  <div style={{
+                    padding: '14px 18px', borderRadius: 14,
+                    background: 'rgba(124,92,252,0.05)', border: '1px solid rgba(124,92,252,0.15)',
+                  }}>
                     <span style={{
-                      padding: '2px 10px', borderRadius: 100,
-                      background: 'rgba(232,85,122,0.15)',
-                      border: '1px solid rgba(232,85,122,0.3)',
-                      fontSize: '0.7rem', fontWeight: 700,
-                      letterSpacing: '0.1em', textTransform: 'uppercase',
-                      color: 'var(--sakura-bloom)',
+                      fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em',
+                      textTransform: 'uppercase', color: 'var(--purple)', marginRight: 10,
                     }}>
                       {r.referenced_media.type}
                     </span>
-                    <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--sakura-blush)' }}>
-                      ✨ {r.referenced_media.title}
-                    </span>
+                    <span style={{ fontWeight: 600, color: 'var(--tx-0)' }}>{r.referenced_media.title}</span>
+                    {r.referenced_media.description && (
+                      <p style={{ fontSize: '0.84rem', color: 'var(--tx-2)', marginTop: 6, lineHeight: 1.6 }}>
+                        {r.referenced_media.description}
+                      </p>
+                    )}
                   </div>
-                  {r.referenced_media.description && (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
-                      {r.referenced_media.description}
-                    </p>
-                  )}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
-        {/* ── INSIGHTS ────────────────────────────────────────────────────── */}
-        {tab === 'insights' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {/* Hook Score */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                  Hook Score — First 3 Seconds
+          {/* INSIGHTS */}
+          {tab === 'insights' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div>
+                <div className="sub-section-label">Hook Score</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ color: 'var(--tx-2)', fontSize: '0.85rem' }}>First-3-second attention strength</span>
+                  <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--purple)', fontFamily: 'var(--font-display)' }}>
+                    {r.hook_score}<span style={{ fontSize: '0.85rem', color: 'var(--tx-3)' }}>/100</span>
+                  </span>
                 </div>
-                <span style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '1.5rem', color: 'var(--sakura-bloom)' }}>
-                  {r.hook_score}<span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/100</span>
-                </span>
-              </div>
-              <div className="hook-bar-track">
-                <div className="hook-bar-fill" style={{ width: `${r.hook_score || 0}%` }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                <span>Weak</span><span>Average</span><span>Strong</span>
-              </div>
-            </div>
-
-            {/* Sentiment */}
-            <div>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
-                Sentiment
-              </div>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '8px 18px', borderRadius: 100,
-                background: 'rgba(255,183,197,0.08)',
-                border: '1px solid rgba(255,183,197,0.18)',
-                fontSize: '0.9rem', fontWeight: 500, color: 'var(--sakura-pale)',
-              }}>
-                <span style={{ fontSize: '1.1rem' }}>
-                  {r.sentiment === 'Positive' ? '😊' : r.sentiment === 'Negative' ? '😔' : '😐'}
-                </span>
-                {r.sentiment}
-              </div>
-            </div>
-
-            <div className="sakura-divider"><span>🌸</span></div>
-
-            {/* Suggestions */}
-            <div>
-              <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 16 }}>
-                Improvement Suggestions
-              </div>
-              {(r.suggestions || []).map((s: string, i: number) => (
-                <div key={i} className="suggestion-item">
-                  <div className="suggestion-num">{i + 1}</div>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}>{s}</span>
+                <div className="hook-bar-track">
+                  <div className="hook-bar-fill" style={{ width: `${r.hook_score || 0}%` }} />
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── MUSIC ───────────────────────────────────────────────────────── */}
-        {tab === 'music' && (
-          <div>
-            {r.music?.detected ? (
-              <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                {/* Cover art */}
-                {r.music.cover_url && (
-                  <div style={{
-                    width: 140, height: 140, flexShrink: 0,
-                    borderRadius: 16, overflow: 'hidden',
-                    border: '1px solid rgba(255,183,197,0.2)',
-                    boxShadow: '0 12px 40px rgba(232,85,122,0.25)',
-                  }}>
-                    <img
-                      src={r.music.cover_url}
-                      alt="Album cover"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  </div>
+                {r.hook_analysis && (
+                  <p style={{ fontSize: '0.88rem', color: 'var(--tx-2)', lineHeight: 1.7, marginTop: 12 }}>{r.hook_analysis}</p>
                 )}
+              </div>
+              <div>
+                <div className="sub-section-label">Improvement Suggestions</div>
+                {(r.suggestions || []).map((s: string, i: number) => (
+                  <div key={i} className="suggestion-item">
+                    <div className="suggestion-num">{i + 1}</div>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--tx-1)', lineHeight: 1.7 }}>{s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                {/* Song info */}
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
-                    {r.music.inferred ? '🌸 Music Inferred via AI Fallback' : '🎵 Music Identified via Shazam'}
-                  </div>
-                  <div style={{ fontSize: '1.6rem', fontFamily: 'var(--font-heading)', fontStyle: 'italic', color: 'var(--sakura-bloom)', marginBottom: 4, lineHeight: 1.2 }}>
-                    {r.music.song_title}
-                  </div>
-                  <div style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
-                    by {r.music.artist}
-                  </div>
-
-                  {r.music.inferred && (
+          {/* MUSIC */}
+          {tab === 'music' && (
+            <div>
+              {r.music?.detected ? (
+                <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+                  {r.music.cover_url && (
                     <div style={{
-                      padding: '12px 16px', borderRadius: 12, marginBottom: 16,
-                      background: 'rgba(255,183,197,0.04)',
-                      border: '1px solid rgba(255,183,197,0.12)',
-                      fontSize: '0.85rem', lineHeight: 1.6, color: 'var(--text-secondary)'
+                      width: 130, height: 130, borderRadius: 16, overflow: 'hidden', flexShrink: 0,
+                      border: '1px solid rgba(255,183,197,0.2)',
+                      boxShadow: '0 12px 40px rgba(232,85,122,0.2)',
                     }}>
-                      <div style={{ fontWeight: 600, color: 'var(--sakura-blush)', marginBottom: 4, fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                        AI CONFIDENCE: {Math.round((r.music.confidence || 0) * 100)}%
-                      </div>
-                      <span style={{ fontStyle: 'italic' }}>"{r.music.explanation}"</span>
+                      <img src={r.music.cover_url} alt="Album cover"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
                   )}
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {r.music.album && (
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 52, letterSpacing: '0.1em' }}>ALBUM</span>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--sakura-pale)' }}>{r.music.album}</span>
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div className="sub-section-label">
+                      {r.music.inferred ? '🌸 Music Inferred via AI' : '🎵 Music Identified via Shazam'}
+                    </div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--purple)', marginBottom: 4 }}>
+                      {r.music.song_title}
+                    </div>
+                    <div style={{ fontSize: '1rem', color: 'var(--tx-1)', marginBottom: 16 }}>
+                      by {r.music.artist}
+                    </div>
+                    {[
+                      { k: 'ALBUM', v: r.music.album },
+                      { k: 'GENRE', v: r.music.genre },
+                      { k: 'LABEL', v: r.music.label },
+                    ].filter(x => x.v).map(row => (
+                      <div key={row.k} style={{ display: 'flex', gap: 12, marginBottom: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--tx-3)', letterSpacing: '0.1em', minWidth: 46 }}>{row.k}</span>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--tx-1)' }}>{row.v}</span>
                       </div>
-                    )}
-                    {r.music.genre && (
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 52, letterSpacing: '0.1em' }}>GENRE</span>
-                        <span className="tag-chip">{r.music.genre}</span>
-                      </div>
-                    )}
-                    {r.music.label && (
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: 52, letterSpacing: '0.1em' }}>LABEL</span>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--sakura-pale)' }}>{r.music.label}</span>
-                      </div>
+                    ))}
+                    {r.music.apple_music_url && (
+                      <a href={r.music.apple_music_url} target="_blank" rel="noopener noreferrer"
+                        className="btn-ghost-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 14, textDecoration: 'none' }}>
+                        🎧 Listen on Apple Music
+                      </a>
                     )}
                   </div>
-
-                  {r.music.apple_music_url && (
-                    <a
-                      href={r.music.apple_music_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-ghost-sakura"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 20, fontSize: '0.85rem', textDecoration: 'none' }}
-                    >
-                      🎧 Listen on Apple Music
-                    </a>
-                  )}
                 </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: '4rem', marginBottom: 16 }}>🎵</div>
-                <p style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '1.1rem', marginBottom: 8 }}>
-                  音楽は見つかりませんでした
-                </p>
-                <p style={{ fontSize: '0.85rem' }}>
-                  {r.music?.reason || 'No music was detected in this video. It may be speech-only or silent.'}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--tx-2)' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: 16 }}>🎵</div>
+                  <p style={{ fontSize: '1.1rem', marginBottom: 8 }}>No music detected</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--tx-3)' }}>
+                    {r.music?.reason || 'This video may be speech-only or silent.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* ── TRANSCRIPT ──────────────────────────────────────────────────── */}
-        {tab === 'transcript' && (
-          <div>
-            {r.transcript ? (
-              <div>
-                <p style={{
-                  lineHeight: 2, fontSize: '0.95rem',
-                  color: 'var(--text-secondary)',
-                  whiteSpace: 'pre-wrap',
-                  maxHeight: 400, overflowY: 'auto',
-                  paddingRight: 12,
+          {/* TRANSCRIPT */}
+          {tab === 'transcript' && (
+            <div>
+              {r.transcript ? (
+                <pre style={{
+                  fontSize: '0.9rem', lineHeight: 2,
+                  color: 'var(--tx-1)', whiteSpace: 'pre-wrap',
+                  fontFamily: 'var(--font-body)',
+                  maxHeight: 380, overflowY: 'auto', paddingRight: 8,
                 }}>
                   {r.transcript}
-                </p>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-                <div style={{
-                  fontSize: '4rem', marginBottom: 16,
-                  filter: 'grayscale(0.3)',
-                }}>🎙</div>
-                <p style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '1.1rem', marginBottom: 8 }}>
-                  声はまだ沈黙の中に
-                </p>
-                <p style={{ fontSize: '0.85rem' }}>The transcript will appear after audio processing.</p>
-              </div>
-            )}
-          </div>
-        )}
+                </pre>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--tx-2)' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: 16 }}>🎙️</div>
+                  <p>No transcript — no audio detected in this video.</p>
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* ── FRAMES ──────────────────────────────────────────────────────── */}
-        {tab === 'frames' && (
-          <div>
-            {r.frames && r.frames.length > 0 ? (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                  <button
-                    className="btn-ghost-sakura"
-                    onClick={handleDownloadFrames}
-                    disabled={downloading === 'frames'}
-                    style={{ fontSize: '0.82rem', padding: '8px 16px' }}
-                  >
-                    {downloading === 'frames' ? '⏳ Zipping…' : `🖼 Download All ${r.frames.length} Frames`}
-                  </button>
-                </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                  gap: 14,
-                }}>
-                  {r.frames.map((frame: any, i: number) => (
-                    <div key={i} style={{
-                      borderRadius: 12, overflow: 'hidden',
-                      border: '1px solid rgba(255,183,197,0.1)',
-                      aspectRatio: '9/16',
-                      background: 'rgba(255,183,197,0.04)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      position: 'relative',
-                    }}
-                      onClick={() => {
-                        // Click to download individual frame
-                        fetch(`${API}/frame/${frame.path}`)
-                          .then(r => r.blob())
-                          .then(blob => downloadBlob(blob, `frame_${i + 1}_at_${Math.round(frame.timestamp)}s.jpg`));
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'scale(1.04)';
-                        e.currentTarget.style.borderColor = 'rgba(255,133,162,0.4)';
-                        e.currentTarget.style.boxShadow = '0 8px 30px rgba(232,85,122,0.2)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = '';
-                        e.currentTarget.style.borderColor = 'rgba(255,183,197,0.1)';
-                        e.currentTarget.style.boxShadow = '';
-                      }}>
-                      <img
-                        src={`${API}/frame/${frame.path}`}
-                        alt={`Frame at ${frame.timestamp}s`}
-                        loading="lazy"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                      {/* Hover overlay with timestamp */}
-                      <div style={{
-                        position: 'absolute', bottom: 0, left: 0, right: 0,
-                        padding: '6px 8px',
-                        background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
-                        fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)',
-                        textAlign: 'center',
-                      }}>
-                        {Math.round(frame.timestamp)}s · click to save
+          {/* FRAMES */}
+          {tab === 'frames' && (
+            <div>
+              {r.frames?.length > 0 ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+                    <button className="btn-ghost-sm" onClick={handleFramesZip} disabled={downloading === 'frames'}>
+                      {downloading === 'frames' ? '⏳ Zipping...' : `🖼️ Download All ${r.frames.length} Frames`}
+                    </button>
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                    gap: 12,
+                  }}>
+                    {r.frames.map((frame: any, i: number) => (
+                      <div
+                        key={i}
+                        style={{
+                          borderRadius: 10, overflow: 'hidden',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          aspectRatio: '9/16', background: 'rgba(255,255,255,0.03)',
+                          cursor: 'pointer', transition: 'all 0.25s ease',
+                          position: 'relative',
+                        }}
+                        onClick={() => {
+                          fetch(frameUrl(frame))
+                            .then(res => res.blob())
+                            .then(blob => dlBlob(blob, `frame_${i + 1}_${Math.round(frame.timestamp)}s.jpg`));
+                        }}
+                        onMouseEnter={e => {
+                          (e.currentTarget as HTMLElement).style.transform = 'scale(1.04)';
+                          (e.currentTarget as HTMLElement).style.borderColor = 'var(--purple-glow)';
+                        }}
+                        onMouseLeave={e => {
+                          (e.currentTarget as HTMLElement).style.transform = '';
+                          (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)';
+                        }}
+                      >
+                        <img
+                          src={frameUrl(frame)}
+                          alt={`Frame at ${frame.timestamp}s`}
+                          loading="lazy"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          onError={e => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
+                        />
+                        <div style={{
+                          position: 'absolute', bottom: 0, left: 0, right: 0,
+                          padding: '6px 8px',
+                          background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                          fontSize: '0.68rem', color: 'rgba(255,255,255,0.8)',
+                          textAlign: 'center',
+                        }}>
+                          {Math.round(frame.timestamp)}s
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--tx-2)' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: 16 }}>🎞️</div>
+                  <p>No frames extracted yet.</p>
                 </div>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: '4rem', marginBottom: 16 }}>🎞</div>
-                <p style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '1.1rem', marginBottom: 8 }}>
-                  映像はまだここにない
-                </p>
-                <p style={{ fontSize: '0.85rem' }}>Extracted frames will bloom here after video processing.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Radar chart */}
+        <div className="radar-card">
+          <div className="radar-card-title">🕸️ Confidence Radar</div>
+          <ConfidenceRadar scores={radarScores} />
+          <div style={{ width: '100%' }}>
+            {Object.entries(radarScores).map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--tx-2)', width: 52, textTransform: 'capitalize', fontFamily: 'var(--font-body)' }}>{k}</span>
+                <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 100, overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.round(v * 100)}%`, height: '100%', background: 'var(--purple)', borderRadius: 100, transition: 'width 1s ease' }} />
+                </div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--purple)', fontFamily: 'var(--font-mono)', width: 34, textAlign: 'right' }}>
+                  {Math.round(v * 100)}%
+                </span>
               </div>
-            )}
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

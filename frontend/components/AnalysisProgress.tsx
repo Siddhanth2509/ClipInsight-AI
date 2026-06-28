@@ -1,14 +1,14 @@
-﻿'use client';
-import { useEffect, useState } from 'react';
+'use client';
+import { useEffect, useState, useRef } from 'react';
 
-// â”€â”€ Friendly error messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Error mapping ─────────────────────────────────────────────────────────── */
 const ERROR_MAP: Record<string, string> = {
-  private_video:    "ðŸ”’ Private video â€” try a public one.",
-  video_unavailable:"ðŸ“µ This video isn't available. It may have been deleted.",
-  login_required:   "ðŸ” This platform requires login. Try a YouTube or public Instagram URL.",
-  video_too_long:   "â³ This video is too long (max 3 min). Please try a shorter one.",
-  too_large:        "ðŸ“¦ Video is too large (max 100MB). Try a shorter clip.",
-  default:          "âš  Something went wrong. Please try a different URL.",
+  private_video:     '🔒 Private video — try a public one.',
+  video_unavailable: '🔵 This video is not available. It may have been deleted.',
+  login_required:    '🔐 Login required. Try a YouTube or public Instagram URL.',
+  video_too_long:    '⏳ Video too long (max 3 min). Please try a shorter one.',
+  too_large:         '📦 Video too large (max 100MB). Try a shorter clip.',
+  default:           '⚠️ Something went wrong. Please try a different URL.',
 };
 
 function getFriendlyError(raw: string): string {
@@ -18,258 +18,416 @@ function getFriendlyError(raw: string): string {
   return ERROR_MAP.default;
 }
 
-const STEPS = [
-  { key: 'upload',          label: 'Upload',    icon: 'â¬†ï¸',  kanji: 'ä¸Š' },
-  { key: 'extracting',      label: 'Frames',    icon: 'ðŸŽž',  kanji: 'æ˜ ' },
-  { key: 'transcribing',    label: 'Audio',     icon: 'ðŸŽ™',  kanji: 'å£°' },
-  { key: 'analyzing',       label: 'AI Vision', icon: 'ðŸ§ ',  kanji: 'çŸ¥' },
-  { key: 'detecting_music', label: 'Music',     icon: 'ðŸŽµ',  kanji: 'æ¥½' },
-  { key: 'done',            label: 'Complete',  icon: 'ðŸŒ¸',  kanji: 'æ¡œ' },
+/* ── Status ordering ───────────────────────────────────────────────────────── */
+const STATUS_ORDER = [
+  'queued', 'downloading', 'downloaded',
+  'extracting', 'transcribing', 'analyzing', 'detecting_music', 'done',
 ] as const;
 
-type StepKey = typeof STEPS[number]['key'];
+/* ── AI Engines list ───────────────────────────────────────────────────────── */
+const AI_ENGINES = [
+  { label: 'Downloading Video',            icon: '⬇️',  activeStep: 1, doneStep: 2 },
+  { label: 'Extracting Frames',            icon: '🎞️',  activeStep: 2, doneStep: 3 },
+  { label: 'Whisper is Listening',         icon: '🎙️',  activeStep: 3, doneStep: 4 },
+  { label: 'Vision AI Detecting Objects',  icon: '👁️',  activeStep: 4, doneStep: 5 },
+  { label: 'OCR Reading Text',             icon: '📝',  activeStep: 4, doneStep: 5 },
+  { label: 'Emotion Engine',               icon: '😊',  activeStep: 4, doneStep: 5 },
+  { label: 'Music Identification',         icon: '🎵',  activeStep: 5, doneStep: 6 },
+  { label: 'Report Generation',            icon: '📊',  activeStep: 6, doneStep: 7 },
+];
 
-const STATUS_TO_STEP: Record<string, StepKey> = {
-  queued:          'upload',
-  uploaded:        'upload',
-  downloaded:      'upload',
-  downloading:     'upload',
-  extracting:      'extracting',
-  transcribing:    'transcribing',
-  analyzing:       'analyzing',
-  detecting_music: 'detecting_music',
-  done:            'done',
-};
+/* ── Pipeline steps ────────────────────────────────────────────────────────── */
+const PIPELINE = [
+  { label: 'Video Ingestion',    icon: '📥', doneAt: 2 },
+  { label: 'Frame Extraction',   icon: '🎞️', doneAt: 3 },
+  { label: 'Audio Processing',   icon: '🎙️', doneAt: 4 },
+  { label: 'AI Analysis',        icon: '🧠', doneAt: 5 },
+  { label: 'Insight Generation', icon: '✨', doneAt: 7 },
+];
 
-interface AnalysisProgressProps {
+/* ── Neural network node positions ────────────────────────────────────────── */
+const NEURAL_NODES = [
+  { x: 12, y: 25,  label: 'Vision AI',  activeFrom: 4 },
+  { x: 82, y: 18,  label: 'Speech AI',  activeFrom: 3 },
+  { x: 88, y: 68,  label: 'OCR',        activeFrom: 4 },
+  { x: 55, y: 88,  label: 'Emotion',    activeFrom: 4 },
+  { x: 10, y: 72,  label: 'Trend',      activeFrom: 5 },
+  { x: 45, y: 12,  label: 'Whisper',    activeFrom: 3 },
+  { x: 70, y: 55,  label: 'Gemini',     activeFrom: 4 },
+];
+
+/* ── Confetti config ───────────────────────────────────────────────────────── */
+const CONFETTI_COLORS = ['#7C5CFC', '#3DD9FF', '#57D98D', '#F5C96A', '#FFB6C1', '#EC4899'];
+
+interface Props {
   jobId: string;
   onComplete: (result: any) => void;
+  onError?:   (msg: string)  => void;
 }
 
-export default function AnalysisProgress({ jobId, onComplete }: AnalysisProgressProps) {
-  const [currentStep, setCurrentStep] = useState<StepKey>('upload');
-  const [messages,    setMessages]    = useState<string[]>([]);
-  const [error,       setError]       = useState('');
-  const [thumbnail,   setThumbnail]   = useState('');
+export default function AnalysisProgress({ jobId, onComplete, onError }: Props) {
+  const [statusStr,    setStatusStr]    = useState('queued');
+  const [messages,     setMessages]     = useState<string[]>([]);
+  const [error,        setError]        = useState('');
+  const [thumbnail,    setThumbnail]    = useState('');
+  const [showSuccess,  setShowSuccess]  = useState(false);
+  const [enginePct,    setEnginePct]    = useState<number[]>(Array(8).fill(0));
+  const [overallPct,   setOverallPct]   = useState(0);
+  const [eta,          setEta]          = useState('~60s');
+  const [confetti,     setConfetti]     = useState<{ x: number; color: string; delay: number; size: number; round: boolean }[]>([]);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API         = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const targetsRef  = useRef<number[]>(Array(8).fill(0));
+  const startRef    = useRef<number>(Date.now());
+  const doneRef     = useRef(false);
 
+  const safeIdx = Math.max(0, STATUS_ORDER.indexOf(statusStr as typeof STATUS_ORDER[number]));
+
+  /* ── Compute engine target progress based on status ─────────────────────── */
+  useEffect(() => {
+    if (statusStr === 'done') {
+      targetsRef.current = Array(8).fill(100);
+      setOverallPct(100);
+      setEta('');
+      return;
+    }
+
+    const targets = AI_ENGINES.map(e => {
+      if (safeIdx < e.activeStep) return 0;
+      if (safeIdx >= e.doneStep)  return 100;
+      const frac = (safeIdx - e.activeStep + 0.4) / (e.doneStep - e.activeStep);
+      return Math.min(88, Math.round(frac * 100 + 8));
+    });
+    targetsRef.current = targets;
+
+    const overall = Math.min(95, Math.round((safeIdx / (STATUS_ORDER.length - 1)) * 100));
+    setOverallPct(overall);
+
+    const elapsed   = (Date.now() - startRef.current) / 1000;
+    const totalEst  = 65;
+    const remaining = Math.max(0, Math.round(totalEst - elapsed));
+    setEta(remaining > 0 ? `~${remaining}s` : 'almost done...');
+  }, [statusStr, safeIdx]);
+
+  /* ── Smooth animation toward targets ────────────────────────────────────── */
+  useEffect(() => {
+    const id = setInterval(() => {
+      setEnginePct(prev =>
+        prev.map((p, i) => {
+          const t = targetsRef.current[i];
+          if (Math.abs(p - t) < 0.5) return t;
+          return p + (t - p) * 0.07;
+        })
+      );
+    }, 40);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ── Backend polling ─────────────────────────────────────────────────────── */
   useEffect(() => {
     if (!jobId) return;
+    startRef.current = Date.now();
+    doneRef.current  = false;
 
-    const startPipeline = async () => {
+    (async () => {
       try {
         await fetch(`${API}/analyze/${jobId}`, { method: 'POST' });
-      } catch (e) {
-        setError('Could not connect to the analysis server.');
+      } catch {
+        setError('Could not connect to the analysis server. Is the backend running?');
       }
-    };
-    startPipeline();
+    })();
 
     const poll = async () => {
+      if (doneRef.current) return;
       try {
         const res  = await fetch(`${API}/status/${jobId}`);
         const data = await res.json();
-        setCurrentStep(STATUS_TO_STEP[data.status] || 'upload');
+        setStatusStr(data.status || 'queued');
         setMessages(data.progress || []);
+        if (data.thumbnail_url) setThumbnail(data.thumbnail_url);
 
-        // Pick up thumbnail URL if backend stored it
-        if (data.thumbnail_url) {
-          setThumbnail(data.thumbnail_url);
+        if (data.error) {
+          const msg = getFriendlyError(data.error);
+          setError(msg);
+          onError?.(msg);
+          doneRef.current = true;
+          clearInterval(pollId);
+          return;
         }
 
-        if (data.error) setError(getFriendlyError(data.error));
         if (data.status === 'done') {
-          clearInterval(id);
-          const rRes   = await fetch(`${API}/results/${jobId}`);
-          const result = await rRes.json();
-          onComplete(result);
+          doneRef.current = true;
+          clearInterval(pollId);
+
+          // Spawn confetti
+          setConfetti(
+            Array.from({ length: 60 }, (_, i) => ({
+              x:     Math.random() * 100,
+              color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+              delay: Math.random() * 1.8,
+              size:  6 + Math.random() * 10,
+              round: Math.random() > 0.5,
+            }))
+          );
+          setShowSuccess(true);
+
+          // Fetch full result then transition
+          setTimeout(async () => {
+            try {
+              const rRes   = await fetch(`${API}/results/${jobId}`);
+              const result = await rRes.json();
+              onComplete(result);
+            } catch (e) {
+              console.error('Failed to fetch results:', e);
+            }
+          }, 2800);
         }
       } catch (e) {
         console.error('Status poll error:', e);
       }
     };
 
-    const id = setInterval(poll, 1500);
+    const pollId = setInterval(poll, 1500);
     poll();
-    return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobId, onComplete, API]);
+    return () => { clearInterval(pollId); doneRef.current = true; };
+  }, [jobId, onComplete, onError, API]);
 
-  const currentIdx = STEPS.findIndex(s => s.key === currentStep);
+  const latestMsg = messages[messages.length - 1] || 'Initializing pipeline...';
 
+  /* ── Render ─────────────────────────────────────────────────────────────── */
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', width: '100%' }}>
-
-      {/* Current step kanji watermark */}
-      <div style={{ textAlign: 'center', position: 'relative', marginBottom: 48 }}>
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%,-60%)',
-          fontFamily: 'var(--font-display)',
-          fontSize: '10rem', fontWeight: 900, lineHeight: 1,
-          color: 'var(--text-kanji)',
-          pointerEvents: 'none', userSelect: 'none',
-          transition: 'all 0.5s ease',
-        }}>
-          {STEPS[currentIdx]?.kanji}
-        </div>
-
-        {/* Step Track */}
-        <div className="step-track">
-          {STEPS.map((step, i) => {
-            const isDone   = i < currentIdx;
-            const isActive = i === currentIdx;
-            return (
-              <div key={step.key} className={`step-item${isDone ? ' done' : ''}${isActive ? ' active' : ''}`}>
-                {i < STEPS.length - 1 && (
-                  <div className="step-line-h" style={{
-                    background: isDone
-                      ? 'linear-gradient(90deg, var(--sakura-bloom), var(--sakura-blush))'
-                      : 'var(--glass-border)',
-                  }} />
-                )}
-                <div className="step-dot-sakura">
-                  {isDone ? 'ðŸŒ¸' : step.icon}
-                </div>
-                <span className="step-name">{step.label}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Video Thumbnail Preview â€” Phase 3d */}
-      {thumbnail && (
-        <div style={{
-          display: 'flex', justifyContent: 'center', marginBottom: 28,
-          animation: 'fadeInDown 0.5s ease',
-        }}>
-          <div style={{
-            position: 'relative', borderRadius: 18, overflow: 'hidden',
-            border: '1px solid var(--glass-border-bright)',
-            boxShadow: '0 12px 48px rgba(155,59,82,0.22)',
-            maxWidth: 340,
-          }}>
-            <img
-              src={thumbnail}
-              alt="Video thumbnail"
-              style={{ width: '100%', display: 'block', objectFit: 'cover' }}
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+    <>
+      {/* ── Confetti burst ── */}
+      {showSuccess && (
+        <div className="confetti-container">
+          {confetti.map((p, i) => (
+            <div
+              key={i}
+              className="confetti-piece"
+              style={{
+                left:            `${p.x}%`,
+                background:      p.color,
+                width:           p.size,
+                height:          p.size,
+                borderRadius:    p.round ? '50%' : '2px',
+                animationDelay:  `${p.delay}s`,
+              }}
             />
-            {/* Overlay badge */}
-            <div style={{
-              position: 'absolute', top: 12, left: 12,
-              background: 'rgba(155,59,82,0.88)',
-              backdropFilter: 'blur(8px)',
-              borderRadius: 8, padding: '4px 12px',
-              fontSize: '0.72rem', fontWeight: 600,
-              color: '#fff', letterSpacing: '0.08em',
-            }}>
-              ðŸŽ¬ ANALYZING
-            </div>
-            {/* Bottom gradient */}
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
-              background: 'linear-gradient(transparent, var(--midnight))',
-            }} />
+          ))}
+        </div>
+      )}
+
+      {/* ── Success overlay ── */}
+      {showSuccess && (
+        <div className="success-overlay">
+          <div className="success-check-ring">
+            <span style={{ fontSize: '3rem' }}>✅</span>
+          </div>
+          <h2 className="success-title">Analysis Complete!</h2>
+          <p className="success-sub">Your insights are ready — loading your report...</p>
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            {CONFETTI_COLORS.slice(0, 3).map((c, i) => (
+              <div key={i} style={{
+                width: 10, height: 10, borderRadius: '50%', background: c,
+                animation: 'live-pulse 1s ease-in-out infinite',
+                animationDelay: `${i * 0.25}s`,
+              }} />
+            ))}
           </div>
         </div>
       )}
 
-      {/* Live log card */}
-      <div className="glass-elevated" style={{
-        borderRadius: 24, padding: '28px 32px',
-        border: '1px solid var(--glass-border)',
-        position: 'relative', overflow: 'hidden',
-      }}>
-        {/* Top glow */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
-          background: 'linear-gradient(90deg, transparent, var(--sakura-bloom), transparent)',
-          opacity: 0.4,
-        }} />
+      {/* ── Neural network background ── */}
+      <div className="neural-bg" aria-hidden="true">
+        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0 }}>
+          {NEURAL_NODES.map((n1, i) =>
+            NEURAL_NODES.slice(i + 1).map((n2, j) => (
+              <line
+                key={`${i}-${j}`}
+                x1={`${n1.x}%`} y1={`${n1.y}%`}
+                x2={`${n2.x}%`} y2={`${n2.y}%`}
+                stroke={
+                  safeIdx >= n1.activeFrom && safeIdx >= n2.activeFrom
+                    ? 'rgba(124,92,252,0.12)'
+                    : 'rgba(255,255,255,0.025)'
+                }
+                strokeWidth="0.15"
+              />
+            ))
+          )}
+        </svg>
+        {NEURAL_NODES.map((nd, i) => (
+          <div
+            key={i}
+            className={`neural-node-wrap${safeIdx >= nd.activeFrom ? ' active' : ''}`}
+            style={{ left: `${nd.x}%`, top: `${nd.y}%` }}
+          >
+            <div className="neural-node-dot" />
+            <span className="neural-node-label">{nd.label}</span>
+          </div>
+        ))}
+      </div>
 
-        {/* Status indicator row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <div style={{
-            width: 10, height: 10, borderRadius: '50%',
-            background: error ? '#f87171' : currentStep === 'done' ? '#6EE7B7' : 'var(--sakura-bloom)',
-            boxShadow: `0 0 12px ${error ? '#f87171' : currentStep === 'done' ? '#6EE7B7' : 'var(--sakura-bloom)'}`,
-            transition: 'background 0.4s ease',
-            animation: !error && currentStep !== 'done' ? 'step-breathe 1.6s infinite' : 'none',
-          }} />
-          <span style={{ fontFamily: 'var(--font-heading)', fontStyle: 'italic', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
-            {error
-              ? 'è©©ãŒå¤±ã‚ã‚Œã¾ã—ãŸ â€” An error occurred'
-              : currentStep === 'done'
-              ? 'æ¡œãŒå’²ãã¾ã—ãŸ â€” Analysis complete!'
-              : `${STEPS[currentIdx]?.label} in progressâ€¦`}
+      {/* ── Main page ── */}
+      <div className="analyze-page">
+
+        {/* Header */}
+        <div className="analyze-header">
+          <div className="analyze-label">
+            <span className="analyze-label-dot" />
+            AI Analysis In Progress
+          </div>
+          <h1 className="analyze-title">Analyzing Your Reel</h1>
+          <p className="analyze-sub">
+            Our AI is processing every detail — speech, visuals, music, emotion &amp; trends.
+          </p>
+        </div>
+
+        {/* 2-Column grid */}
+        <div className="analyze-grid">
+
+          {/* ── Left: Engine Status ── */}
+          <div className="engine-panel">
+            <div className="engine-panel-title">⚡ AI Engine Status</div>
+            {AI_ENGINES.map((eng, i) => {
+              const pct     = Math.round(enginePct[i]);
+              const isDone  = pct >= 99;
+              const isActive= pct > 0 && pct < 99;
+              return (
+                <div key={eng.label} className="engine-row">
+                  <span className="engine-icon">{eng.icon}</span>
+                  <span className="engine-label" style={{
+                    color: isDone ? 'var(--green)' : isActive ? 'var(--tx-0)' : 'var(--tx-3)',
+                  }}>
+                    {eng.label}
+                  </span>
+                  <div className="engine-bar-wrap">
+                    <div className="engine-bar-fill" style={{
+                      width: `${pct}%`,
+                      background: isDone
+                        ? 'linear-gradient(90deg, #57D98D, #3DD9FF)'
+                        : 'linear-gradient(90deg, var(--purple), var(--cyan))',
+                    }} />
+                  </div>
+                  <span className="engine-percent" style={{
+                    color: isDone ? 'var(--green)' : isActive ? 'var(--purple)' : 'var(--tx-3)',
+                  }}>
+                    {isDone ? '✓' : `${pct}%`}
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* Thumbnail preview */}
+            {thumbnail && (
+              <div style={{ marginTop: 20, borderRadius: 14, overflow: 'hidden', position: 'relative', maxHeight: 110 }}>
+                <img
+                  src={thumbnail}
+                  alt="Video thumbnail"
+                  style={{ width: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(transparent 40%, rgba(2,11,24,0.95))',
+                  display: 'flex', alignItems: 'flex-end', padding: '10px 14px',
+                }}>
+                  <span style={{
+                    background: 'rgba(124,92,252,0.85)', borderRadius: 8,
+                    padding: '2px 10px', fontSize: '0.68rem', fontWeight: 700,
+                    color: '#fff', letterSpacing: '0.1em',
+                  }}>
+                    🎬 ANALYZING
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Right: Orb + Metrics + Companion ── */}
+          <div className="orb-panel">
+            {/* Animated orb */}
+            <div className="analyze-orb">
+              <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                <div className="orb-percent">{Math.round(overallPct)}%</div>
+                <div className="orb-label">{statusStr === 'done' ? 'Complete' : 'Analyzing'}</div>
+              </div>
+            </div>
+
+            {eta && (
+              <p style={{ fontSize: '0.78rem', color: 'var(--tx-2)', fontFamily: 'var(--font-body)', margin: 0 }}>
+                Estimated remaining:&nbsp;
+                <strong style={{ color: 'var(--purple)' }}>{eta}</strong>
+              </p>
+            )}
+
+            {/* Mini metric cards */}
+            <div className="metric-row">
+              {[
+                { label: 'Objects',  value: safeIdx >= 4 ? `${Math.min(128, safeIdx * 22)}` : '—' },
+                { label: 'Speech',   value: safeIdx >= 3 ? `${Math.min(99, 70 + safeIdx * 4)}%` : '—' },
+                { label: 'AI Score', value: safeIdx >= 5 ? `${60 + safeIdx * 4}` : '—' },
+              ].map(m => (
+                <div key={m.label} className="metric-mini-card">
+                  <div className="metric-mini-value">{m.value}</div>
+                  <div className="metric-mini-label">{m.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* AI Companion — visual placeholder */}
+            <div className="companion-placeholder">
+              <div className="companion-avatar">🤖</div>
+              <div>
+                <div className="companion-name">AI Companion</div>
+                <div className="companion-status">Available after analysis completes</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Live message bar ── */}
+        <div className="live-message-panel">
+          <span className="live-message-dot" />
+          <span className="live-message-text">
+            {error ? `⚠️ ${error}` : latestMsg}
           </span>
         </div>
 
-        {/* Shimmer placeholders while waiting */}
-        {messages.length === 0 && !error && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[80, 65, 50].map((w, i) => (
-              <div key={i} className="shimmer" style={{ height: 14, width: `${w}%` }} />
-            ))}
+        {/* ── Pipeline steps ── */}
+        <div className="pipeline-section">
+          <div className="pipeline-title">📡 Analysis Pipeline</div>
+          <div className="pipeline-steps">
+            {PIPELINE.map((step, i) => {
+              const isDone   = safeIdx >= step.doneAt;
+              const isActive = !isDone && safeIdx >= (i === 0 ? 1 : PIPELINE[i - 1]?.doneAt ?? 0);
+              return (
+                <div
+                  key={step.label}
+                  className={`pipeline-step-item${isDone ? ' done' : ''}${isActive ? ' active' : ''}`}
+                >
+                  <div className="pipeline-step-icon">{step.icon}</div>
+                  <div className="pipeline-step-label">{step.label}</div>
+                  <div className="pipeline-step-status">
+                    {isDone ? '✓ Done' : isActive ? 'Running...' : 'Pending'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
-        {/* Log entries */}
-        {messages.length > 0 && (
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: 8,
-            maxHeight: 220, overflowY: 'auto',
-            paddingRight: 4,
-          }}>
-            {messages.map((msg, i) => (
-              <div key={i} className="log-entry">
-                <span className="log-arrow">â€º</span>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {msg}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Error display */}
+        {/* Error block */}
         {error && (
           <div style={{
-            padding: '14px 18px', borderRadius: 12, marginTop: 8,
-            background: 'rgba(248,113,113,0.06)',
-            border: '1px solid rgba(248,113,113,0.18)',
-            color: '#fca5a5', fontSize: '0.85rem', lineHeight: 1.6,
+            marginTop: 20, padding: '16px 20px', borderRadius: 16,
+            background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)',
+            color: '#fca5a5', fontSize: '0.9rem', lineHeight: 1.6,
           }}>
-            âš  {error}
-          </div>
-        )}
-
-        {/* Petal loading animation at bottom */}
-        {!error && currentStep !== 'done' && (
-          <div className="loading-petals" style={{ marginTop: 24, marginBottom: 0 }}>
-            <div className="loading-petal" />
-            <div className="loading-petal" />
-            <div className="loading-petal" />
+            {error}
           </div>
         )}
       </div>
-
-      {/* Haiku quote while loading */}
-      {currentStep !== 'done' && !error && (
-        <div style={{
-          textAlign: 'center', marginTop: 32,
-          fontFamily: 'var(--font-heading)',
-          fontStyle: 'italic', fontSize: '0.95rem',
-          color: 'var(--text-muted)', lineHeight: 2,
-        }}>
-          <div style={{ color: 'var(--glass-border-bright)', fontSize: '1.4rem', marginBottom: 4 }}>èŠ±ã³ã‚‰</div>
-          "Every frame a petal â€” patience blooms<br />into wisdom"
-        </div>
-      )}
-    </div>
+    </>
   );
 }
-

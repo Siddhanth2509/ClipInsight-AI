@@ -197,6 +197,14 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
 
     ydl_opts = {**base_opts, **platform_opts}
 
+    # Auto-load cookies.txt if present in root or backend folder
+    root_cookies = Path(__file__).parent.parent.parent / "cookies.txt"
+    backend_cookies = Path(__file__).parent.parent / "cookies.txt"
+    if root_cookies.exists():
+        ydl_opts["cookiefile"] = str(root_cookies)
+    elif backend_cookies.exists():
+        ydl_opts["cookiefile"] = str(backend_cookies)
+
     if progress_callback:
         progress_callback(f"Detected platform: {platform.title()} — optimizing download…")
 

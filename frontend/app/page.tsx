@@ -19,15 +19,22 @@ const fadeUp = {
 };
 
 /* ── Scroll-reveal hook ── */
-function useScrollReveal() {
+function useScrollReveal(appState: AppState) {
   useEffect(() => {
-    const els = document.querySelectorAll('.reveal');
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
-    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-    els.forEach(el => obs.observe(el));
-    return () => obs.disconnect();
-  }, []);
+    if (appState !== 'hero') return;
+    let obs: IntersectionObserver | null = null;
+    const timer = setTimeout(() => {
+      const els = document.querySelectorAll('.reveal');
+      obs = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs?.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      els.forEach(el => obs?.observe(el));
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      if (obs) obs.disconnect();
+    };
+  }, [appState]);
 }
 
 /* ── Nav scroll effect ── */
@@ -41,28 +48,37 @@ function useNavScroll() {
 }
 
 /* ── 3D card mouse tilt ── */
-function use3DCards() {
+function use3DCards(appState: AppState) {
   useEffect(() => {
-    const cards = document.querySelectorAll<HTMLElement>('.card');
+    if (appState !== 'hero') return;
     const handlers: Array<{ el: HTMLElement; mo: (e: MouseEvent) => void; ml: () => void }> = [];
-    cards.forEach(card => {
-      const mo = (e: MouseEvent) => {
-        const r = card.getBoundingClientRect();
-        const x = (e.clientX - r.left) / r.width  - 0.5;
-        const y = (e.clientY - r.top)  / r.height - 0.5;
-        card.style.transform = `perspective(1000px) rotateY(${x * 10}deg) rotateX(${-y * 8}deg) scale(1.02) translateY(-6px)`;
-        card.style.boxShadow = `0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(124,92,252,0.25), ${x * 20}px ${y * 20}px 40px rgba(124,92,252,0.10)`;
-      };
-      const ml = () => {
-        card.style.transform = '';
-        card.style.boxShadow = '';
-      };
-      card.addEventListener('mousemove', mo);
-      card.addEventListener('mouseleave', ml);
-      handlers.push({ el: card, mo, ml });
-    });
-    return () => handlers.forEach(({ el, mo, ml }) => { el.removeEventListener('mousemove', mo); el.removeEventListener('mouseleave', ml); });
-  }, []);
+    const timer = setTimeout(() => {
+      const cards = document.querySelectorAll<HTMLElement>('.card');
+      cards.forEach(card => {
+        const mo = (e: MouseEvent) => {
+          const r = card.getBoundingClientRect();
+          const x = (e.clientX - r.left) / r.width  - 0.5;
+          const y = (e.clientY - r.top)  / r.height - 0.5;
+          card.style.transform = `perspective(1000px) rotateY(${x * 10}deg) rotateX(${-y * 8}deg) scale(1.02) translateY(-6px)`;
+          card.style.boxShadow = `0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(124,92,252,0.25), ${x * 20}px ${y * 20}px 40px rgba(124,92,252,0.10)`;
+        };
+        const ml = () => {
+          card.style.transform = '';
+          card.style.boxShadow = '';
+        };
+        card.addEventListener('mousemove', mo);
+        card.addEventListener('mouseleave', ml);
+        handlers.push({ el: card, mo, ml });
+      });
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      handlers.forEach(({ el, mo, ml }) => {
+        el.removeEventListener('mousemove', mo);
+        el.removeEventListener('mouseleave', ml);
+      });
+    };
+  }, [appState]);
 }
 
 
@@ -157,9 +173,9 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
     window.dispatchEvent(new CustomEvent('theme-change', { detail: theme }));
   }, [theme]);
 
-  useScrollReveal();
+  useScrollReveal(appState);
   useNavScroll();
-  use3DCards();
+  use3DCards(appState);
 
   /* Submit URL */
   const handleAnalyze = useCallback(async () => {

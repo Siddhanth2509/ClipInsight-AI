@@ -9,7 +9,7 @@ const ERROR_MAP: Record<string, string> = {
   video_too_long:     'Video too long — maximum is 3 minutes. Please try a shorter clip.',
   too_large:          'Video file is too large (max 100MB). Please try a shorter clip.',
   age_restricted:     'This video is age-restricted and cannot be accessed.',
-  not supported url:  'This URL is not supported. Please use Instagram, YouTube, or TikTok.',
+  'not supported url':  'This URL is not supported. Please use Instagram, YouTube, or TikTok.',
   'no video formats': 'Could not find a downloadable format for this video.',
   'unable to extract': 'Could not extract video data. The URL may be invalid or restricted.',
   'http error 403':   'Access denied by the video platform. Try a different URL.',

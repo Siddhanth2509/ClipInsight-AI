@@ -297,10 +297,16 @@ async def run_analysis(job_id: str):
     """
     if job_id not in jobs:
         raise HTTPException(status_code=404, detail="Job not found.")
+    
+    # Check if the job is already running to prevent duplicate pipelines
+    status = jobs[job_id].get("status")
+    if status in ("extracting", "transcribing", "analyzing", "detecting_music", "done"):
+        return {"started": True, "job_id": job_id, "detail": "Already running or completed"}
+
     if not jobs[job_id].get("video_path"):
         raise HTTPException(status_code=400, detail="No video associated with this job.")
 
-    # Start the pipeline as a background coroutine
+    # Start the pipeline as a background asyncio task
     asyncio.create_task(_run_pipeline(job_id))
 
     return {"started": True, "job_id": job_id}

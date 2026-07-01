@@ -130,12 +130,11 @@ Open **http://localhost:3000** 🌸
 Whisper (transcription) + Shazam (music) = **$0.00** — fully local.
 
 ### Music Detection (No API Key Required)
-We implement Shazam's fingerprinting algorithm from scratch in pure Python:
-1. Extract 15s of mono 16kHz PCM audio via FFmpeg
-2. Apply Hann window + FFT to get frequency spectrum
-3. Find constellation peaks across 6 frequency bands
-4. Package as binary signature → POST to Shazam discovery API
-5. Returns: song, artist, album, genre, cover art, Apple Music link
+We utilize a WebAssembly-based Shazam node recognition runner:
+1. Extract a short 12s mono 16kHz PCM audio snippet via FFmpeg
+2. Run audio recognition through WebAssembly compiled Shazam engines in Node.js (cross-platform, zero native compiler setup required on Windows)
+3. Query the Shazam database to extract track details (song title, artist, album, cover art)
+4. Fall back automatically to Gemini / Sakana AI inferences from video description and comments if Shazam returns no match
 
 ---
 
@@ -184,7 +183,7 @@ We implement Shazam's fingerprinting algorithm from scratch in pure Python:
 - [x] Phase 2 — Music detection + download system
 - [x] Phase 3 — PDF export + share links + thumbnail preview
 - [x] Phase 4 — Batch comparison + history panel
-- [ ] Phase 5 — User accounts + persistent history
+- [x] Phase 5 — User accounts + persistent history
 - [ ] Phase 6 — TikTok deep integration + browser extension
 - [ ] Phase 7 — Monetization (credits + API)
 

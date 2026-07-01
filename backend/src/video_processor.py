@@ -55,6 +55,17 @@ def save_uploaded_file(file_bytes: bytes, filename: str, job_id: str) -> Path:
     return dest
 
 
+def cookies_contain_domain(cookie_file_path: Path, domain_keyword: str) -> bool:
+    """Check if a cookies file contains entries matching a specific domain keyword."""
+    try:
+        if not cookie_file_path.exists():
+            return False
+        content = cookie_file_path.read_text(encoding="utf-8", errors="ignore")
+        return domain_keyword.lower() in content.lower()
+    except Exception:
+        return False
+
+
 def download_video(url: str, job_id: str, progress_callback=None) -> Path:
     """
     Downloads a video using yt-dlp with platform-aware settings.
@@ -195,69 +206,114 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
 
     ydl_opts = {**base_opts, **platform_opts}
 
-    # Auto-load cookies.txt if present in root or backend folder
-    root_cookies = Path(__file__).parent.parent.parent / "cookies.txt"
-    backend_cookies = Path(__file__).parent.parent / "cookies.txt"
-    if root_cookies.exists():
-        ydl_opts["cookiefile"] = str(root_cookies)
-    elif backend_cookies.exists():
-        ydl_opts["cookiefile"] = str(backend_cookies)
+    # Auto-load any cookies.txt or cookies1.txt if present in root or backend folder
+    root_dir = Path(__file__).parent.parent.parent
+    backend_dir = Path(__file__).parent.parent
+    
+    candidate_cookies = []
+    for d in (root_dir, backend_dir):
+        if d.exists():
+            for f in d.glob("cookies*"):
+                if f.is_file() and f.name.lower().endswith((".txt", "")):
+                    candidate_cookies.append(f)
+                    
+    if candidate_cookies:
+        # Sort to prefer files that have more content (larger size)
+        candidate_cookies.sort(key=lambda p: p.stat().st_size, reverse=True)
+        
+        # Select the first cookies file that actually contains cookies for this platform
+        selected_cookie_file = None
+        # For youtube, look for 'youtube' or 'google'; for instagram, look for 'instagram'
+        domain_keywords = ["instagram"] if platform == "instagram" else ["youtube", "google"] if platform == "youtube" else [platform]
+        
+        for f in candidate_cookies:
+            if any(cookies_contain_domain(f, kw) for kw in domain_keywords):
+                selected_cookie_file = f
+                break
+                
+        if selected_cookie_file:
+            ydl_opts["cookiefile"] = str(selected_cookie_file)
+            if progress_callback:
+                progress_callback(f"Loading cookies from {selected_cookie_file.name} for {platform}…")
+        else:
+            if progress_callback:
+                progress_callback(f"No cookies found for {platform} in cookies files. Proceeding anonymously…")
 
     if progress_callback:
         progress_callback(f"Detected platform: {platform.title()} — optimizing download…")
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            if progress_callback:
-                progress_callback("Extracting video metadata and user comments…")
-            info = ydl.extract_info(url, download=True)
-
-            # Check duration limit (max 3 minutes / 180s)
-            duration = info.get("duration", 0)
-            if duration and duration > 180:
-                # Clean up downloaded files in the job directory
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                if progress_callback:
+                    progress_callback("Extracting video metadata and user comments…")
+                info = ydl.extract_info(url, download=True)
+        except Exception as first_err:
+            # Check if cookies were loaded. If so, retry anonymously (without cookies)
+            if "cookiefile" in ydl_opts:
+                if progress_callback:
+                    progress_callback("Download with cookies failed. Retrying anonymously…")
+                # Clear directory to prevent HTTP 416 (Range Not Satisfiable) resume issues on retry
                 try:
                     for f in job_dir.glob("*"):
                         if f.is_file():
                             f.unlink()
                 except Exception:
                     pass
-                raise RuntimeError("video_too_long")
+                # Make a copy of ydl_opts and delete 'cookiefile'
+                retry_opts = ydl_opts.copy()
+                retry_opts.pop("cookiefile", None)
+                with yt_dlp.YoutubeDL(retry_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+            else:
+                raise first_err
 
-            # ── Save basic metadata to info.json (no comments — fetched separately) ─
-            metadata = {
-                "title":       info.get("title", ""),
-                "description": info.get("description", ""),
-                "uploader":    info.get("uploader", ""),
-                "thumbnail":   info.get("thumbnail", ""),
-                "comments":    []   # Populated later by fetch_comments()
-            }
-            import json as _json
-            with open(job_dir / "info.json", "w", encoding="utf-8") as f:
-                _json.dump(metadata, f, ensure_ascii=False, indent=2)
+            # Check duration limit (max 3 minutes / 180s)
+        duration = info.get("duration", 0)
+        if duration and duration > 180:
+            # Clean up downloaded files in the job directory
+            try:
+                for f in job_dir.glob("*"):
+                    if f.is_file():
+                        f.unlink()
+            except Exception:
+                pass
+            raise RuntimeError("video_too_long")
 
-            # ── Find the downloaded file ──────────────────────────────────
-            # Primary: clip.mp4 (most common after merge_output_format=mp4)
-            expected = job_dir / "clip.mp4"
-            if expected.exists() and expected.stat().st_size > 1000:
-                if progress_callback:
-                    progress_callback(f"✅ {platform.title()} ready: {expected.stat().st_size // 1024} KB")
-                return expected
+        # ── Save basic metadata to info.json (no comments — fetched separately) ─
+        metadata = {
+            "title":       info.get("title", ""),
+            "description": info.get("description", ""),
+            "uploader":    info.get("uploader", ""),
+            "thumbnail":   info.get("thumbnail", ""),
+            "comments":    []   # Populated later by fetch_comments()
+        }
+        import json as _json
+        with open(job_dir / "info.json", "w", encoding="utf-8") as f:
+            _json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-            # Secondary: any video file in the job dir (catches webm, mkv etc.)
-            for ext in ("mp4", "mkv", "webm", "mov", "avi"):
-                candidates = sorted(
-                    job_dir.glob(f"*.{ext}"),
-                    key=lambda p: p.stat().st_size,
-                    reverse=True,
-                )
-                for c in candidates:
-                    if c.stat().st_size > 1000:
-                        if progress_callback:
-                            progress_callback(f"✅ Download complete: {c.name} ({c.stat().st_size // 1024} KB)")
-                        return c
+        # ── Find the downloaded file ──────────────────────────────────
+        # Primary: clip.mp4 (most common after merge_output_format=mp4)
+        expected = job_dir / "clip.mp4"
+        if expected.exists() and expected.stat().st_size > 1000:
+            if progress_callback:
+                progress_callback(f"✅ {platform.title()} ready: {expected.stat().st_size // 1024} KB")
+            return expected
 
-            raise RuntimeError("Download finished but no valid video file found.")
+        # Secondary: any video file in the job dir (catches webm, mkv etc.)
+        for ext in ("mp4", "mkv", "webm", "mov", "avi"):
+            candidates = sorted(
+                job_dir.glob(f"*.{ext}"),
+                key=lambda p: p.stat().st_size,
+                reverse=True,
+            )
+            for c in candidates:
+                if c.stat().st_size > 1000:
+                    if progress_callback:
+                        progress_callback(f"✅ Download complete: {c.name} ({c.stat().st_size // 1024} KB)")
+                    return c
+
+        raise RuntimeError("Download finished but no valid video file found.")
 
     except yt_dlp.utils.DownloadError as e:
         err = str(e).lower()

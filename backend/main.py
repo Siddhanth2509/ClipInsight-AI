@@ -47,7 +47,7 @@ import asyncio
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, Response
 from pydantic import BaseModel
@@ -585,9 +585,16 @@ async def download_frames_zip(job_id: str):
 
 
 @app.get("/report/pdf/{job_id}")
-async def download_pdf_report(job_id: str):
+async def download_pdf_report(
+    job_id: str,
+    theme: str = Query(default="purple", description="UI theme name for PDF styling")
+):
     """
-    Generate and stream a branded PDF analysis report.
+    Generate and stream a themed PDF analysis report.
+
+    The optional `?theme=` query param accepts any of the UI theme keys:
+    purple, ocean-blue, emerald-green, sunset-orange, royal-gold, rose-pink, ice-white.
+    The PDF will use matching dark/light background and accent colors.
 
     📚 Response() with raw bytes is more direct than FileResponse for
        dynamically-generated content that lives in memory (not on disk).
@@ -603,7 +610,9 @@ async def download_pdf_report(job_id: str):
         raise HTTPException(status_code=404, detail="No result found.")
 
     loop = asyncio.get_event_loop()
-    pdf_bytes = await loop.run_in_executor(None, lambda: generate_pdf_report(result))
+    pdf_bytes = await loop.run_in_executor(
+        None, lambda: generate_pdf_report(result, theme=theme)
+    )
 
     return Response(
         content=pdf_bytes,

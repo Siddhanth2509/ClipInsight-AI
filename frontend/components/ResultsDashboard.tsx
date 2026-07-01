@@ -161,10 +161,14 @@ export default function ResultsDashboard({ result, jobId, onReset }: Props) {
   const handlePDF = async () => {
     if (!jobId) return;
     setDownloading('pdf');
+    // Read active theme from <html data-theme="…"> so PDF matches current UI
+    const activeTheme =
+      document.documentElement.getAttribute('data-theme') || 'purple';
     try {
-      const res = await fetch(`${API}/report/pdf/${jobId}`);
+      const res = await fetch(`${API}/report/pdf/${jobId}?theme=${encodeURIComponent(activeTheme)}`);
       if (!res.ok) throw new Error('PDF generation failed');
-      dlBlob(await res.blob(), `clipinsight_${jobId.slice(0, 8)}.pdf`);
+      dlBlob(await res.blob(), `clipinsight_${jobId.slice(0, 8)}_${activeTheme}.pdf`);
+      setToast(`✅ PDF downloaded in ${activeTheme.replace('-', ' ')} theme!`);
     } catch { setToast('⚠️ PDF generation failed. Try the text report instead.'); }
     finally   { setDownloading(null); setTimeout(() => setToast(''), 4000); }
   };

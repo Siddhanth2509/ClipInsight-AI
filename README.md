@@ -182,8 +182,8 @@ We implement Shazam's fingerprinting algorithm from scratch in pure Python:
 
 - [x] Phase 1 — Core pipeline (frames + transcription + Gemini)
 - [x] Phase 2 — Music detection + download system
-- [ ] Phase 3 — PDF export + share links + thumbnail preview
-- [ ] Phase 4 — Batch comparison + history panel
+- [x] Phase 3 — PDF export + share links + thumbnail preview
+- [x] Phase 4 — Batch comparison + history panel
 - [ ] Phase 5 — User accounts + persistent history
 - [ ] Phase 6 — TikTok deep integration + browser extension
 - [ ] Phase 7 — Monetization (credits + API)

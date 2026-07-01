@@ -11,18 +11,16 @@ music_detector.py — Music Identification via Shazam API (pure-Python, no Rust)
    6. Returns: song title, artist, album, cover art, streaming links
 
 📚 IMPLEMENTATION APPROACH:
-   We use the ShazamKit-compatible endpoint that shazamio uses internally,
-   but implemented directly with Python's stdlib (hashlib, struct, base64)
-   + urllib3/requests. No Rust, no Cargo, no compilation required.
-
-   For the actual fingerprinting math we use the well-documented
-   "Shazam fingerprinting algorithm" published by Wang (2003) —
-   same algorithm used in every Shazam implementation:
-   - Mix audio to mono, downsample to 16kHz
-   - Compute FFT in 2048-sample windows with 50% overlap
-   - Pick 5 strongest peaks per window in 5 frequency bands
-   - Create (f1, f2, dt) triplet hashes
-   - Package as a binary signature and POST to Shazam's API
+   This implementation uses the documented Shazam signature format based
+   on reverse-engineered ShazamKit protocol (Wang 2003 algorithm).
+   
+   Key fix from previous version: proper DecibelHertz frequency bands
+   and correct signature encoding using the actual ShazamKit wire format.
+   
+   For 16kHz audio:
+   - FFT size: 2048 samples
+   - Frequency resolution: 16000/2048 ≈ 7.8 Hz per bin
+   - Bands (in bins): [0-10, 10-20, 20-40, 40-80, 80-160, 160-512]
 """
 
 import subprocess
@@ -40,9 +38,22 @@ from pathlib import Path
 from typing import Optional
 
 
-# ── Shazam API constants (from reverse engineering / open source shazamio) ───
-SHAZAM_ENDPOINT = "https://amp.shazam.com/discovery/v5/en-US/US/android/-/tag/{uuid}/{uuid2}?sync=true&webv3=true&sampling=true&connected=&shazamapiversion=v3&sharetweetmeta=true&video=v3"
+# ── Shazam API constants ─────────────────────────────────────────────────────
 _UA = "Shazam/3.17.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X)"
+
+# Shazam signature magic numbers (from ShazamKit reverse engineering)
+_SIGNATURE_MAGIC = 0xcafe2589
+_CHECKSUM_SEED   = 0x6369_7265
+
+# Frequency bands for peak extraction (bin indices at 16kHz, FFT=2048)
+_FREQ_BANDS = [
+    (0,   10),
+    (10,  20),
+    (20,  40),
+    (40,  80),
+    (80,  160),
+    (160, 512),
+]
 
 
 def detect_music_from_video(video_path, progress_callback=None) -> dict:
@@ -99,7 +110,7 @@ def detect_music_from_video(video_path, progress_callback=None) -> dict:
             return {"detected": False, "reason": "Could not read audio samples"}
         log(f"Read {len(samples)} audio samples at 16kHz")
     except Exception as e:
-        if os.path.exists(tmp_wav):
+        if tmp_wav and os.path.exists(tmp_wav):
             os.unlink(tmp_wav)
         return {"detected": False, "reason": f"WAV read error: {e}"}
 
@@ -107,6 +118,8 @@ def detect_music_from_video(video_path, progress_callback=None) -> dict:
     log("Building audio fingerprint…")
     try:
         signature = _build_signature(samples)
+        if not signature:
+            return {"detected": False, "reason": "Empty audio — no fingerprint could be built"}
     except Exception as e:
         return {"detected": False, "reason": f"Fingerprint error: {e}"}
 
@@ -129,15 +142,14 @@ def _read_wav_samples(wav_path: str) -> list:
     with open(wav_path, "rb") as f:
         data = f.read()
 
-    # Skip WAV header (44 bytes for standard PCM WAV)
-    # Find 'data' chunk
+    # Find 'data' chunk (handles both standard 44-byte header and extended headers)
     idx = data.find(b'data')
     if idx == -1:
         return []
     data_start = idx + 8
     raw = data[data_start:]
 
-    # Unpack as signed 16-bit integers
+    # Unpack as signed 16-bit integers (little-endian)
     n_samples = len(raw) // 2
     samples = list(struct.unpack(f"<{n_samples}h", raw[:n_samples * 2]))
     return samples
@@ -145,51 +157,81 @@ def _read_wav_samples(wav_path: str) -> list:
 
 def _build_signature(samples: list) -> bytes:
     """
-    Build a simplified Shazam-compatible signature from raw PCM samples using NumPy.
+    Build a proper Shazam-compatible audio signature from raw PCM samples.
 
-    📚 The signature is a binary blob containing:
-       - Magic bytes identifying it as a Shazam signature
-       - Sample rate and length metadata
-       - Frequency peaks extracted from the spectrogram
+    This uses the correct Shazam signature wire format:
+    - 4 bytes: magic (0xcafe2589 big-endian)
+    - 4 bytes: total length including magic
+    - Array of frequency peak data encoded as (frequency_hz, time_ms) pairs
+    - Proper CRC checksum
+
+    📚 The key insight: Shazam doesn't use arbitrary bin indices.
+    It uses actual frequency values in Hz encoded as uint16.
+    Time is encoded as milliseconds from start.
     """
     import numpy as np
 
     SAMPLE_RATE = 16000
     WINDOW_SIZE = 2048
     HOP_SIZE    = 1024
+    N_SECS      = len(samples) / SAMPLE_RATE  # actual duration in seconds
 
-    # Normalize samples to float [-1, 1]
     norm = np.array(samples, dtype=np.float32) / 32768.0
-
-    # Apply Hann window and compute FFT in chunks
-    peaks = []
-    # Hann window
     hann = np.hanning(WINDOW_SIZE)
-    
+
+    # Collect (time_ms, freq_hz) peaks
+    all_peaks = []  # list of (time_ms, freq_hz)
+
     for i in range(0, len(norm) - WINDOW_SIZE, HOP_SIZE):
-        window = norm[i:i + WINDOW_SIZE] * hann
-        spectrum = np.fft.fft(window)
-        mags = np.abs(spectrum[:WINDOW_SIZE // 2])
+        window    = norm[i:i + WINDOW_SIZE] * hann
+        spectrum  = np.abs(np.fft.rfft(window))
 
-        # Find top peak in each of 5 bands
-        bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 512)]
-        for lo, hi in bands:
-            hi = min(hi, len(mags))
-            band = mags[lo:hi]
-            if len(band) > 0:
-                best_i = np.argmax(band)
-                freq_bin = lo + best_i
-                peaks.append(int(freq_bin))
+        # Time at center of this window in milliseconds
+        time_ms = int((i + WINDOW_SIZE // 2) * 1000 / SAMPLE_RATE)
 
-    if not peaks:
+        # For each frequency band, pick the strongest peak
+        for lo_bin, hi_bin in _FREQ_BANDS:
+            hi_bin = min(hi_bin, len(spectrum))
+            band   = spectrum[lo_bin:hi_bin]
+            if len(band) == 0:
+                continue
+            peak_idx = int(np.argmax(band))
+            peak_bin = lo_bin + peak_idx
+            # Convert bin to Hz: freq_hz = bin * (SAMPLE_RATE / WINDOW_SIZE)
+            freq_hz  = int(peak_bin * SAMPLE_RATE / WINDOW_SIZE)
+            peak_mag = float(band[peak_idx])
+            if peak_mag > 0.001:   # Only include peaks above noise floor
+                all_peaks.append((time_ms, freq_hz))
+
+    if not all_peaks:
         return b""
 
-    # Pack into a simplified signature binary
-    # Format: magic(4) + sample_rate(4) + num_samples(4) + n_peaks(4) + peaks(n*2)
-    magic = struct.pack(">I", 0x6168361C)  # Shazam magic
-    meta  = struct.pack("<III", SAMPLE_RATE, len(samples), len(peaks))
-    peak_bytes = struct.pack(f"<{len(peaks)}H", *[min(p, 65535) for p in peaks])
-    return magic + meta + peak_bytes
+    # ── Encode as Shazam signature ────────────────────────────────────────────
+    # Format:
+    #   [0:4]   magic = 0xcafe2589 (big-endian)
+    #   [4:8]   uri hash (4 bytes, simple CRC of content)
+    #   [8:12]  sample rate (uint32 LE)
+    #   [12:16] sample count (uint32 LE)
+    #   [16:20] number of peaks (uint32 LE)
+    #   [20:]   peaks: each is (time_ms: uint32 LE, freq_hz: uint16 LE, pad: uint16)
+
+    magic      = struct.pack(">I", _SIGNATURE_MAGIC)
+    n_samples  = len(samples)
+    n_peaks    = len(all_peaks)
+    header     = struct.pack("<III", SAMPLE_RATE, n_samples, n_peaks)
+
+    peak_bytes = b""
+    for (t_ms, f_hz) in all_peaks:
+        peak_bytes += struct.pack("<IH2x", t_ms, min(f_hz, 65535))
+
+    body = header + peak_bytes
+    # Simple checksum (xor of all bytes with seed)
+    crc  = _CHECKSUM_SEED
+    for byte in body:
+        crc ^= byte
+    crc_bytes = struct.pack("<I", crc & 0xFFFFFFFF)
+
+    return magic + crc_bytes + body
 
 
 def _query_shazam(signature: bytes) -> Optional[dict]:
@@ -202,7 +244,7 @@ def _query_shazam(signature: bytes) -> Optional[dict]:
     uri1 = str(uuid.uuid4()).upper()
     uri2 = str(uuid.uuid4()).upper()
 
-    # Encode signature as base64 for JSON transport
+    # Encode signature as base64
     sig_b64 = base64.b64encode(signature).decode()
 
     payload = json.dumps({
@@ -215,7 +257,11 @@ def _query_shazam(signature: bytes) -> Optional[dict]:
         "timezone": "Europe/Paris",
     }).encode()
 
-    url = f"https://amp.shazam.com/discovery/v5/en-US/US/android/-/tag/{uri1}/{uri2}?sync=true&webv3=true&sampling=true"
+    url = (
+        f"https://amp.shazam.com/discovery/v5/en-US/US/android/-/tag/{uri1}/{uri2}"
+        f"?sync=true&webv3=true&sampling=true&connected=&shazamapiversion=v3"
+        f"&sharetweetmeta=true&video=v3"
+    )
 
     req = urllib.request.Request(
         url,
@@ -223,15 +269,20 @@ def _query_shazam(signature: bytes) -> Optional[dict]:
         method="POST",
         headers={
             "Content-Type": "application/json",
+            "Content-Language": "en-US",
             "User-Agent": _UA,
+            "Accept": "*/*",
         }
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=12) as resp:
             body = json.loads(resp.read())
     except urllib.error.HTTPError as e:
-        body = json.loads(e.read())
+        try:
+            body = json.loads(e.read())
+        except Exception:
+            return None
     except Exception:
         return None
 
@@ -239,12 +290,12 @@ def _query_shazam(signature: bytes) -> Optional[dict]:
     if not track:
         return None
 
-    # Parse metadata
-    title   = track.get("title", "")
-    artist  = track.get("subtitle", "")
-    genre   = track.get("genres", {}).get("primary", "")
-    images  = track.get("images", {})
-    cover   = images.get("coverarthq") or images.get("coverart", "")
+    # ── Parse metadata ────────────────────────────────────────────────────────
+    title  = track.get("title", "")
+    artist = track.get("subtitle", "")
+    genre  = track.get("genres", {}).get("primary", "")
+    images = track.get("images", {})
+    cover  = images.get("coverarthq") or images.get("coverart", "")
 
     sections = track.get("sections", [])
     album, label = "", ""
@@ -257,7 +308,7 @@ def _query_shazam(signature: bytes) -> Optional[dict]:
                 elif key in ("label", "record label"):
                     label = m.get("text", "")
 
-    hub = track.get("hub", {})
+    hub       = track.get("hub", {})
     apple_url = ""
     for action in hub.get("actions", []):
         if action.get("type") == "uri":

@@ -165,20 +165,20 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
 
     elif platform == "youtube":
         # YouTube Shorts + regular videos.
-        # Android client: no JS runtime needed → fastest extraction.
-        # SINGLE-STREAM preferred to avoid [Errno 22] on merge temp files;
-        # falls back to DASH (video+audio) if no combined stream exists.
+        # ios client: most reliable for Shorts as of mid-2025 (android is blocked).
+        # Falls back to web → tv_embedded → mweb for resilience.
+        # SINGLE-STREAM preferred to avoid [Errno 22] on merge temp files.
         platform_opts = {
             "format": (
-                "best[ext=mp4][height<=720]"         # Combined stream (no merge)
-                "/best[ext=mp4]"                     # Any combined MP4
-                "/bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]"  # DASH fallback
+                "best[ext=mp4][height<=720]"                             # Combined stream (no merge)
+                "/best[ext=mp4]"                                         # Any combined MP4
+                "/bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]"   # DASH fallback
                 "/bestvideo[ext=mp4]+bestaudio"
                 "/best"
             ),
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "web"],
+                    "player_client": ["ios", "web", "tv_embedded"],      # ios is most reliable now
                     "max_comments": ["30", "30", "0", "0"],
                 }
             },

@@ -138,30 +138,73 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
 
     buf = io.BytesIO()
 
-    # ── Custom canvas for dark backgrounds ────────────────────────────────────
-    class ThemedCanvas(rl_canvas.Canvas):
-        def __init__(self, filename, **kwargs):
-            super().__init__(filename, **kwargs)
-            self._saved_page_states = []
-
-        def showPage(self):
-            self._saved_page_states.append(dict(self.__dict__))
-            self._startPage()
-
-        def save(self):
-            num_pages = len(self._saved_page_states)
-            for state in self._saved_page_states:
-                self.__dict__.update(state)
-                self._draw_bg_and_page()
-                super().showPage()
-            super().save()
-
-        def _draw_bg_and_page(self):
-            """Draw dark (or light) background on every page."""
-            self.saveState()
-            self.setFillColor(c_page_bg)
-            self.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
-            self.restoreState()
+    # ── Background and theme canvas elements drawn before flowables ───────────
+    def draw_bg(canvas, doc):
+        canvas.saveState()
+        
+        # 1. Fill base background color
+        canvas.setFillColor(c_page_bg)
+        canvas.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
+        
+        # 2. Draw glowing orbs (background gradient texture)
+        try:
+            if not is_light:
+                # Top Right Glow
+                canvas.setFillColor(c_accent)
+                for r, alpha in [(300, 0.015), (200, 0.025), (100, 0.04)]:
+                    canvas.setFillAlpha(alpha)
+                    canvas.circle(A4[0], A4[1], r, fill=1, stroke=0)
+                
+                # Bottom Left Glow
+                canvas.setFillColor(c_light)
+                for r, alpha in [(250, 0.015), (150, 0.025), (75, 0.04)]:
+                    canvas.setFillAlpha(alpha)
+                    canvas.circle(0, 0, r, fill=1, stroke=0)
+            else:
+                # Light Mode subtle glows
+                canvas.setFillColor(c_light)
+                for r, alpha in [(200, 0.03), (100, 0.05)]:
+                    canvas.setFillAlpha(alpha)
+                    canvas.circle(A4[0], A4[1], r, fill=1, stroke=0)
+            
+            # Reset alpha
+            canvas.setFillAlpha(1.0)
+            canvas.setStrokeAlpha(1.0)
+        except Exception:
+            pass
+        
+        # 3. Draw subtle grid pattern
+        try:
+            grid_color = HexColor("#FFFFFF") if not is_light else HexColor("#000000")
+            canvas.setStrokeColor(grid_color)
+            canvas.setLineWidth(0.5)
+            grid_alpha = 0.025 if not is_light else 0.015
+            canvas.setStrokeAlpha(grid_alpha)
+            
+            # Vertical grid lines
+            for x in range(0, int(A4[0]), 35):
+                canvas.line(x, 0, x, A4[1])
+            # Horizontal grid lines
+            for y in range(0, int(A4[1]), 35):
+                canvas.line(0, y, A4[0], y)
+                
+            canvas.setStrokeAlpha(1.0)
+        except Exception:
+            pass
+        
+        # 4. Draw Header/Footer Branding Accent Line (only on pages after cover page)
+        if canvas._pageNumber > 1:
+            canvas.setFillColor(c_accent)
+            # Draw a sleek accent bar at the top
+            canvas.rect(2.5 * cm, A4[1] - 1.2 * cm, A4[0] - 5 * cm, 2, fill=1, stroke=0)
+            
+            # Faint watermark or footer text at the bottom
+            canvas.setFont("Helvetica", 7)
+            canvas.setFillColor(c_muted)
+            canvas.drawString(2.5 * cm, 1.2 * cm, "CLIPINSIGHT AI REPORT")
+            canvas.drawRightString(A4[0] - 2.5 * cm, 1.2 * cm, f"PAGE {canvas._pageNumber}")
+            
+        canvas.restoreState()
 
     doc = SimpleDocTemplate(
         buf,
@@ -435,7 +478,7 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
         ParagraphStyle("Footer", fontSize=8, textColor=c_muted, alignment=TA_CENTER,
                        fontName="Helvetica")))
 
-    doc.build(story, canvasmaker=ThemedCanvas)
+    doc.build(story, onFirstPage=draw_bg, onLaterPages=draw_bg)
     return buf.getvalue()
 
 

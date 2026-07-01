@@ -231,7 +231,25 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
         </div>
         <div className="nav-links">
           {['Analyze','Features','Pipeline','API','Pricing'].map(l => (
-            <button key={l} className="nav-link">{l}</button>
+            <button
+              key={l}
+              className="nav-link"
+              onClick={() => {
+                const targetId = l.toLowerCase() === 'pipeline' ? 'how' : l.toLowerCase();
+                if (appState !== 'hero') {
+                  setAppState('hero');
+                  setTimeout(() => {
+                    const el = document.getElementById(targetId);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 150);
+                } else {
+                  const el = document.getElementById(targetId);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+            >
+              {l}
+            </button>
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -324,7 +342,7 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
         <motion.div key="hero-state" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0,transition:{duration:0.3}}}>
 
           {/* ── HERO SECTION ── */}
-          <section className="hero">
+          <section className="hero" id="analyze">
             {/* Left: content */}
             <div className="hero-content">
               <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
@@ -799,7 +817,28 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
             <div className="footer-brand">Clip<span>Insight</span> AI</div>
             <div className="footer-links">
               {['Features','Pipeline','API','Pricing','Privacy'].map(l=>(
-                <a key={l} className="footer-link" href="#">{l}</a>
+                <a
+                  key={l}
+                  className="footer-link"
+                  href={`#${l.toLowerCase() === 'pipeline' ? 'how' : l.toLowerCase()}`}
+                  onClick={(e) => {
+                    if (l === 'Privacy') return;
+                    e.preventDefault();
+                    const targetId = l.toLowerCase() === 'pipeline' ? 'how' : l.toLowerCase();
+                    if (appState !== 'hero') {
+                      setAppState('hero');
+                      setTimeout(() => {
+                        const el = document.getElementById(targetId);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 150);
+                    } else {
+                      const el = document.getElementById(targetId);
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                >
+                  {l}
+                </a>
               ))}
             </div>
             <div className="footer-copy">© 2025 ClipInsight AI. Built with Gemini 2.0, Whisper & OpenCV.</div>

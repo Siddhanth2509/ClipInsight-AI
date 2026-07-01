@@ -5,6 +5,9 @@ import dynamic from 'next/dynamic';
 import AnalysisProgress from '@/components/AnalysisProgress';
 import ResultsDashboard from '@/components/ResultsDashboard';
 import { saveToHistory } from '@/components/HistoryPanel';
+import HistoryPanel from '@/components/HistoryPanel';
+import BatchAnalysis from '@/components/BatchAnalysis';
+import UserAccount from '@/components/UserAccount';
 
 const HeroScene = dynamic(() => import('@/components/HeroScene'), { ssr: false });
 
@@ -147,6 +150,9 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
   const [urlError,    setUrlError]    = useState('');
   const [activeTab,   setActiveTab]   = useState(0);
   const [theme,       setTheme]       = useState('purple');
+  const [showHistory, setShowHistory] = useState(false);
+  const [showBatch,   setShowBatch]   = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
 
   // On page load: if current theme is NOT ice-white, advance to the next cycled theme.
   // This means every REFRESH shows the next theme automatically.
@@ -240,16 +246,75 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
                 }}
                 onClick={() => {
                   setTheme(t.key);
-                  // When user manually picks a theme, save it directly.
-                  // If they pick ice-white, it will persist across refreshes.
-                  // If they pick a dark theme, the NEXT refresh will advance from it.
                   localStorage.setItem('clipinsight-theme', t.key);
                 }}
                 title={t.tooltip}
               />
             ))}
           </div>
-          <div className="nav-badge">BETA · FREE</div>
+
+          {/* ── Action buttons ── */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* History */}
+            <button
+              id="nav-history-btn"
+              onClick={() => setShowHistory(true)}
+              title="Analysis History"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.09)',
+                borderRadius: 8, padding: '7px 11px',
+                color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
+                fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 5,
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(124,92,252,0.12)'; e.currentTarget.style.color = 'var(--purple, #7C5CFC)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
+            >
+              <span>🕐</span>
+              <span style={{ fontSize: '0.72rem', letterSpacing: '0.06em' }}>History</span>
+            </button>
+
+            {/* Batch */}
+            <button
+              id="nav-batch-btn"
+              onClick={() => setShowBatch(true)}
+              title="Batch Video Comparison"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.09)',
+                borderRadius: 8, padding: '7px 11px',
+                color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
+                fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: 5,
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(61,217,255,0.1)'; e.currentTarget.style.color = 'var(--cyan, #3DD9FF)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}
+            >
+              <span>⚡</span>
+              <span style={{ fontSize: '0.72rem', letterSpacing: '0.06em' }}>Batch</span>
+            </button>
+
+            {/* User Account */}
+            <button
+              id="nav-account-btn"
+              onClick={() => setShowAccount(true)}
+              title="Your Account"
+              style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--purple, #7C5CFC), var(--cyan, #3DD9FF))',
+                border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.78rem', fontWeight: 700, color: '#fff',
+                boxShadow: '0 0 0 2px rgba(124,92,252,0.2)',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,92,252,0.4)'; e.currentTarget.style.transform = 'scale(1.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 0 2px rgba(124,92,252,0.2)'; e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              U
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -792,6 +857,26 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
         }
         .results-wrap { position: relative; z-index: 3; }
       `}</style>
+
+      {/* ── Modals ── */}
+      <HistoryPanel
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onReplay={(jid) => {
+          setShowHistory(false);
+          setJobId(jid);
+          setAppState('results');
+        }}
+      />
+
+      {showBatch && (
+        <BatchAnalysis onClose={() => setShowBatch(false)} />
+      )}
+
+      <UserAccount
+        isOpen={showAccount}
+        onClose={() => setShowAccount(false)}
+      />
     </>
   );
 }

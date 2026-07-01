@@ -165,8 +165,7 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
 
     elif platform == "youtube":
         # YouTube Shorts + regular videos.
-        # ios client: most reliable for Shorts as of mid-2025 (android is blocked).
-        # Falls back to web → tv_embedded → mweb for resilience.
+        # Let yt-dlp use its default client sequence for maximum compatibility.
         # SINGLE-STREAM preferred to avoid [Errno 22] on merge temp files.
         platform_opts = {
             "format": (
@@ -178,7 +177,6 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
             ),
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["ios", "web", "tv_embedded"],      # ios is most reliable now
                     "max_comments": ["30", "30", "0", "0"],
                 }
             },

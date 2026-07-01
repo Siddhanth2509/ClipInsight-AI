@@ -115,6 +115,26 @@ def _log(job_id: str, msg: str):
         print(f"[{job_id[:8]}] {msg}")  # Also log to console for debugging
 
 
+def _get_friendly_error_message(e: Exception) -> str:
+    err_str = str(e)
+    if err_str == "login_required":
+        return (
+            "Instagram or YouTube requires authentication to access this video. "
+            "Please check that your 'cookies.txt' file in the project folder contains valid "
+            "and active login cookies for the video's platform (e.g. instagram.com or youtube.com). "
+            "Tip: You must export cookies while logged into the respective site."
+        )
+    if err_str == "video_unavailable":
+        return "This video is unavailable (it may be deleted, private, or restricted)."
+    if err_str == "video_too_long":
+        return "This video is too long. The maximum allowed length is 3 minutes (180 seconds)."
+    if err_str == "private_video":
+        return "This video is private. Please provide valid cookies.txt files for authorization."
+    if err_str == "age_restricted":
+        return "This video is age-restricted and requires login cookies."
+    return f"Download failed: {err_str}"
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -194,9 +214,10 @@ async def analyze_url(url: str = Form(...)):
 
         _log(job_id, "Download complete.")
     except Exception as e:
+        friendly_err = _get_friendly_error_message(e)
         jobs[job_id]["status"] = "error"
-        jobs[job_id]["error"]  = str(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        jobs[job_id]["error"]  = friendly_err
+        raise HTTPException(status_code=500, detail=friendly_err)
 
     return {"job_id": job_id}
 
@@ -254,9 +275,10 @@ async def analyze_url_json(req: AnalyzeURLRequest):
 
         _log(job_id, "Download complete.")
     except Exception as e:
+        friendly_err = _get_friendly_error_message(e)
         jobs[job_id]["status"] = "error"
-        jobs[job_id]["error"]  = str(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        jobs[job_id]["error"]  = friendly_err
+        raise HTTPException(status_code=500, detail=friendly_err)
 
     return {"job_id": job_id}
 

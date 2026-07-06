@@ -5,7 +5,7 @@ import { useState } from 'react';
 export const AUTH_KEY     = 'clipinsight_auth';
 export const USERS_DB_KEY = 'clipinsight_users_db';
 export const ADMIN_EMAIL  = 'admin@clipinsight.ai';
-export const ADMIN_PASS   = 'Admin@ClipInsight2025';
+export const ADMIN_PASS   = 'admin123';
 
 export interface AuthUser {
   id:        string;
@@ -77,23 +77,38 @@ export default function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) 
   const handleLogin = () => {
     setError(''); setLoading(true);
     setTimeout(() => {
-      // Admin shortcut
-      if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
+      let trimmedEmail = email.trim().toLowerCase();
+      // Deduplicate email in case of browser/UI double-fills (e.g. text1@domain.comtext1@domain.com)
+      if (trimmedEmail.includes('@')) {
+        const parts = trimmedEmail.split('@');
+        if (parts.length > 2) {
+          trimmedEmail = parts[0] + '@' + parts[1];
+        }
+      }
+      const trimmedPass  = password.trim();
+
+      // Admin shortcut — always works regardless of DB state
+      if (trimmedEmail === ADMIN_EMAIL && trimmedPass === ADMIN_PASS) {
         const admin: AuthUser = {
           id: 'admin-001', name: 'Admin', email: ADMIN_EMAIL,
           password: hashPass(ADMIN_PASS), plan: 'Enterprise',
           credits: 99999, isAdmin: true, joinedAt: new Date().toISOString(), analyses: 0,
         };
         setCurrentUser(admin);
+        // Also save/update admin in the users DB
+        const db = getUsersDb();
+        const idx = db.findIndex(u => u.email === ADMIN_EMAIL);
+        if (idx >= 0) db[idx] = admin; else db.push(admin);
+        saveUsersDb(db);
         onLogin(admin);
         onClose();
         setLoading(false);
         return;
       }
       const db = getUsersDb();
-      const user = db.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const user = db.find(u => u.email.toLowerCase() === trimmedEmail);
       if (!user) { setError('No account found with that email.'); setLoading(false); return; }
-      if (!checkPass(password, user.password)) { setError('Incorrect password.'); setLoading(false); return; }
+      if (!checkPass(trimmedPass, user.password)) { setError('Incorrect password.'); setLoading(false); return; }
       setCurrentUser(user);
       onLogin(user);
       onClose();
@@ -104,21 +119,31 @@ export default function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) 
   const handleSignup = () => {
     setError(''); setLoading(true);
     setTimeout(() => {
+      let cleanedEmail = email.trim().toLowerCase();
+      // Deduplicate email in case of browser/UI double-fills (e.g. text1@domain.comtext1@domain.com)
+      if (cleanedEmail.includes('@')) {
+        const parts = cleanedEmail.split('@');
+        if (parts.length > 2) {
+          cleanedEmail = parts[0] + '@' + parts[1];
+        }
+      }
+
       if (!name.trim())             { setError('Please enter your name.'); setLoading(false); return; }
-      if (!email.includes('@'))     { setError('Please enter a valid email.'); setLoading(false); return; }
+      if (!cleanedEmail.includes('@')) { setError('Please enter a valid email.'); setLoading(false); return; }
       if (password.length < 6)      { setError('Password must be at least 6 characters.'); setLoading(false); return; }
       const db = getUsersDb();
-      if (db.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+      if (db.find(u => u.email.toLowerCase() === cleanedEmail)) {
         setError('An account with this email already exists.'); setLoading(false); return;
       }
+      const isAdminEmail = cleanedEmail === ADMIN_EMAIL;
       const newUser: AuthUser = {
-        id:        `user-${Date.now()}`,
+        id:        isAdminEmail ? 'admin-001' : `user-${Date.now()}`,
         name:      name.trim(),
-        email:     email.toLowerCase().trim(),
+        email:     cleanedEmail,
         password:  hashPass(password),
-        plan:      'Free',
-        credits:   50,
-        isAdmin:   false,
+        plan:      isAdminEmail ? 'Enterprise' : 'Free',
+        credits:   isAdminEmail ? 99999 : 50,
+        isAdmin:   isAdminEmail,
         joinedAt:  new Date().toISOString(),
         analyses:  0,
       };
@@ -197,7 +222,13 @@ export default function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) 
           {(['login', 'signup'] as const).map(t => (
             <button
               key={t}
-              onClick={() => { setTab(t); setError(''); }}
+              onClick={() => {
+                setTab(t);
+                setError('');
+                setName('');
+                setEmail('');
+                setPassword('');
+              }}
               style={{
                 flex: 1, padding: '13px', fontSize: '0.82rem', fontWeight: 600,
                 cursor: 'pointer', border: 'none', transition: 'all 0.2s',

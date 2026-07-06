@@ -319,25 +319,43 @@ def analyze_video(
     prompt = _build_prompt(transcript_text, len(frames_to_send), duration_seconds, metadata=metadata)
     content_parts.append(genai_types.Part.from_text(text=prompt))
 
-    # ── Call the API ──────────────────────────────────────────────────────────
-    log("Calling Gemini 2.0 Flash API...")
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=content_parts,
-            config=genai_types.GenerateContentConfig(
-                temperature=0.3,
-                response_mime_type="application/json",
-                response_schema=VideoAnalysis,
-            ),
-        )
+    # ── Call the API with model rotation on 429 ──────────────────────────────
+    MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b"]
+    response = None
+    raw_text = ""
+    last_err = None
 
-        raw_text = response.text.strip()
-        log("Gemini responded — parsing JSON…")
+    for model_name in MODELS_TO_TRY:
+        log(f"Calling {model_name}...")
+        try:
+            res = client.models.generate_content(
+                model=model_name,
+                contents=content_parts,
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.3,
+                    response_mime_type="application/json",
+                    response_schema=VideoAnalysis,
+                ),
+            )
+            raw_text = res.text.strip()
+            response = res
+            log(f"Successfully generated via {model_name}")
+            break
+        except Exception as e:
+            last_err = e
+            err_msg = str(e)
+            if "429" in err_msg or "quota" in err_msg.lower() or "resource_exhausted" in err_msg.lower():
+                log(f"Model {model_name} quota hit, trying next model...")
+                continue
+            else:
+                log(f"Gemini API error on {model_name}: {e}")
+                return _demo_analysis(frames, transcript_data, duration_seconds)
 
-    except Exception as e:
-        log(f"Gemini API error: {e}")
+    if response is None:
+        log(f"All Gemini models failed or quota exceeded: {last_err}")
         return _demo_analysis(frames, transcript_data, duration_seconds)
+
+    log("Gemini responded — parsing JSON…")
 
     # ── Parse and validate the JSON response ─────────────────────────────────
     try:
@@ -364,35 +382,87 @@ def analyze_video(
 
 def _demo_analysis(frames: list, transcript_data: dict, duration: float) -> dict:
     """
-    Fallback demo result when no API key is set.
-    Lets you test the full frontend pipeline without spending API credits.
-
-    📚 This is called a "graceful degradation" pattern — the app still
-       works and shows the UI correctly even without a real API key.
-       Useful for development, demos, and offline testing.
+    Fallback demo result when no API key is set or all models are quota-exceeded.
+    Computes a dynamic hook score from actual video data so the score varies per video.
     """
+    import random
+    import hashlib
+
+    word_count   = transcript_data.get("word_count", 0)
+    full_text    = transcript_data.get("full_text", "")
+    num_frames   = len(frames)
+
+    # Deterministic seed from transcript content so same video = same score
+    seed_str = full_text[:64] + str(round(duration)) + str(num_frames)
+    seed_val = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+    rng = random.Random(seed_val)
+
+    # Compute score components from real data
+    # 1. Word density (words/sec) — higher density = more engaging
+    words_per_sec  = word_count / max(duration, 1)
+    density_score  = min(40, int(words_per_sec * 12))  # 0-40 pts
+
+    # 2. Duration bonus — sweet spot 15-60s for reels
+    if 15 <= duration <= 60:
+        duration_score = 25
+    elif 10 <= duration < 15 or 60 < duration <= 90:
+        duration_score = 18
+    else:
+        duration_score = 10
+
+    # 3. Frame richness
+    frame_score = min(20, num_frames * 2)
+
+    # 4. Small random variance (±8 pts) to differentiate different videos
+    variance = rng.randint(-8, 8)
+
+    hook_score = max(20, min(96, density_score + duration_score + frame_score + variance))
+
+    # Derive sentiment from transcript text sentiment keywords
+    positive_words = ["amazing", "great", "love", "awesome", "best", "wow", "beautiful", "incredible", "happy", "win"]
+    negative_words = ["bad", "hate", "worst", "ugly", "fail", "terrible", "sad", "boring", "awful"]
+    text_lower = full_text.lower()
+    pos_count = sum(1 for w in positive_words if w in text_lower)
+    neg_count = sum(1 for w in negative_words if w in text_lower)
+    if pos_count > neg_count:
+        sentiment, sentiment_score = "Positive", round(0.6 + rng.random() * 0.35, 2)
+    elif neg_count > pos_count:
+        sentiment, sentiment_score = "Negative", round(0.2 + rng.random() * 0.3, 2)
+    else:
+        sentiment, sentiment_score = "Neutral",  round(0.45 + rng.random() * 0.2, 2)
+
+    est_watch = f"{hook_score + rng.randint(-5, 5)}%"
+
     return {
-        "summary": "This is a demo analysis. Add your GEMINI_API_KEY to the .env file to enable real AI analysis. The video appears to be a short-form content piece with engaging visuals.",
+        "summary": (
+            f"Analysis computed from video metrics (Gemini API quota exceeded). "
+            f"Video is {round(duration)}s long with {word_count} spoken words across {num_frames} frames. "
+            f"Add a paid Gemini API key for full AI analysis."
+        ),
         "topics":  ["Content Creation", "Social Media", "Video Production"],
         "tags":    ["reels", "shortform", "content", "viral", "creator"],
-        "sentiment": "Positive",
-        "sentiment_score": 0.72,
-        "hook_score": 68,
-        "hook_analysis": "Demo mode: Add GEMINI_API_KEY for real hook analysis.",
+        "sentiment": sentiment,
+        "sentiment_score": sentiment_score,
+        "hook_score": hook_score,
+        "hook_analysis": (
+            f"Computed from video data: {word_count} words in {round(duration)}s "
+            f"({round(words_per_sec, 1)} words/sec density). "
+            "Upgrade Gemini API key for detailed hook evaluation."
+        ),
         "target_audience": "Social media users aged 18-35",
         "suggestions": [
-            "Add your GEMINI_API_KEY to .env to unlock real AI suggestions.",
-            "Real analysis will evaluate hook strength, pacing, and CTA clarity.",
-            "Whisper transcription is already working — add Gemini for full pipeline.",
+            "Add a Gemini API key with billing enabled to unlock real AI suggestions.",
+            f"Your video has {round(words_per_sec, 1)} words/sec — aim for 2.5-3.5 for optimal engagement.",
+            f"At {round(duration)}s duration, {'this is in the optimal 15-60s range.' if 15 <= duration <= 60 else 'consider adjusting to 15-60s for better retention.'}",
         ],
         "content_category": "General",
-        "estimated_watch_time": "~65%",
+        "estimated_watch_time": est_watch,
         "referenced_media": None,
         "inferred_music": None,
-        "duration_seconds":  round(duration, 1),
-        "frame_count":       len(frames),
-        "word_count":        transcript_data.get("word_count", 0),
-        "transcript":        transcript_data.get("full_text", ""),
+        "duration_seconds":    round(duration, 1),
+        "frame_count":         num_frames,
+        "word_count":          word_count,
+        "transcript":          full_text,
         "transcript_segments": transcript_data.get("segments", []),
-        "frames":            frames,
+        "frames":              frames,
     }

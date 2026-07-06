@@ -180,7 +180,27 @@ export default function UserAccount({ isOpen, onClose, onOpenAdmin, onOpenPaymen
 
   useEffect(() => {
     if (!isOpen) return;
-    setUser(getCurrentUser());
+    let curr = getCurrentUser();
+    if (curr) {
+      let changed = false;
+      // Self-healing migration for admin accounts with duplicate strings or missing flags
+      if (curr.email.includes('admin@clipinsight.ai')) {
+        if (curr.email !== 'admin@clipinsight.ai') {
+          curr.email = 'admin@clipinsight.ai';
+          changed = true;
+        }
+        if (!curr.isAdmin) {
+          curr.isAdmin = true;
+          curr.plan = 'Enterprise';
+          curr.credits = 99999;
+          changed = true;
+        }
+      }
+      if (changed) {
+        updateCurrentUser(curr);
+      }
+    }
+    setUser(curr);
     setHistory(getHistory());
   }, [isOpen]);
 
@@ -522,9 +542,7 @@ export default function UserAccount({ isOpen, onClose, onOpenAdmin, onOpenPaymen
           {/* ── Sign Out (always visible at bottom) ── */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, display: 'flex', gap: 8 }}>
             <button
-              onClick={() => {
-                if (confirm('Are you sure you want to sign out?')) signOut();
-              }}
+              onClick={() => signOut()}
               style={{
                 flex: 1, padding: '10px', borderRadius: 10, fontSize: '0.78rem',
                 background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)',

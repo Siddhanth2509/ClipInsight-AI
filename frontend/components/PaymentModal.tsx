@@ -182,6 +182,7 @@ export default function PaymentModal({ isOpen, onClose, plan = 'Pro', onSuccess 
         boxShadow: '0 40px 120px rgba(0,0,0,0.85)',
         animation: 'payFadeIn 0.3s cubic-bezier(0.22,1,0.36,1)',
         maxHeight: '92vh', overflowY: 'auto',
+        color: '#F8FAFC',
       }}>
         <style>{`
           @keyframes payFadeIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
@@ -415,13 +416,13 @@ export default function PaymentModal({ isOpen, onClose, plan = 'Pro', onSuccess 
                     Scan QR or pay to UPI ID
                   </div>
                   <div style={{
-                    width: 140, height: 140, margin: '0 auto 12px',
+                    width: 110, height: 110, margin: '0 auto 10px',
                     background: '#fff', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     border: `2px solid ${planInfo.color}50`,
                   }}>
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=upi://pay?pa=${UPI_ID}&pn=ClipInsight AI&am=${planInfo.inr}&cu=INR`}
-                      alt="UPI QR Code" width={130} height={130}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=${UPI_ID}&pn=ClipInsight AI&am=${planInfo.inr}&cu=INR`}
+                      alt="UPI QR Code" width={100} height={100}
                       style={{ borderRadius: 8 }}
                     />
                   </div>

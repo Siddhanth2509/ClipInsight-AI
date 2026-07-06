@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
+import DecryptedText from '@/components/reactbits/DecryptedText';
 
 /* ── Error mapping ─────────────────────────────────────────────────────────── */
 const ERROR_MAP: Record<string, string> = {
@@ -475,11 +476,15 @@ export default function AnalysisProgress({ jobId, onComplete, onError }: Props) 
           </div>
         </div>
 
-        {/* ── Live message bar ── */}
+        {/* ── Live message bar (web_skill) ── */}
         <div className="live-message-panel">
           <span className="live-message-dot" />
           <span className="live-message-text">
-            {error ? `⚠️ ${error}` : latestMsg}
+            {error ? (
+              `⚠️ ${error}`
+            ) : (
+              <DecryptedText text={latestMsg} speed={30} maxIterations={6} />
+            )}
           </span>
         </div>
 

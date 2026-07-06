@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import AnalysisProgress from '@/components/AnalysisProgress';
@@ -9,6 +10,16 @@ import UserAccount from '@/components/UserAccount';
 import AuthModal, { getCurrentUser, deductCredit, type AuthUser } from '@/components/AuthModal';
 import AdminPanel from '@/components/AdminPanel';
 import PaymentModal from '@/components/PaymentModal';
+
+// ── ReactBits Component Imports (web_skill) ──
+import SplitText from '@/components/reactbits/SplitText';
+import BlurText from '@/components/reactbits/BlurText';
+import Aurora from '@/components/reactbits/Aurora';
+import BorderGlow from '@/components/reactbits/BorderGlow';
+import StarBorder from '@/components/reactbits/StarBorder';
+import ClickSpark from '@/components/reactbits/ClickSpark';
+import GlareHover from '@/components/reactbits/GlareHover';
+import SpotlightCard from '@/components/reactbits/SpotlightCard';
 
 const HeroScene = dynamic(() => import('@/components/HeroScene'), { ssr: false });
 
@@ -143,6 +154,16 @@ const THEMES = [
 export default function Home() {
 const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','royal-gold','rose-pink'] as const;
 
+  // Live AI core status for hero panel
+  const [heroHealth, setHeroHealth] = React.useState<any>(null);
+  React.useEffect(() => {
+    fetch(`${BACKEND}/health`).then(r => r.json()).then(d => setHeroHealth(d)).catch(() => setHeroHealth(null));
+    const iv = setInterval(() => {
+      fetch(`${BACKEND}/health`).then(r => r.json()).then(d => setHeroHealth(d)).catch(() => {});
+    }, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
   const [appState,     setAppState]    = useState<AppState>('hero');
   const [jobId,        setJobId]       = useState('');
   const [result,       setResult]      = useState<any>(null);
@@ -223,13 +244,8 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
 
   return (
     <>
-      {/* ── Fixed background layers ── */}
-      <div className="bg-layer-glows">
-        <div className="bg-glow bg-glow-1"/>
-        <div className="bg-glow bg-glow-2"/>
-        <div className="bg-glow bg-glow-3"/>
-        <div className="bg-glow bg-glow-4"/>
-      </div>
+      {/* ── Fixed background layers (web_skill) ── */}
+      <Aurora />
       <div className="bg-grid"/>
       <div className="bg-dots"/>
       <div className="scan-line"/>
@@ -332,16 +348,17 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
                 </div>
               </motion.div>
 
-              <motion.h1 className="hero-title" custom={0.1} variants={fadeUp} initial="hidden" animate="visible">
-                Turn Any Reel Into<br/>
-                <span className="gradient-text">AI Intelligence</span>
-              </motion.h1>
+              <h1 className="hero-title">
+                <SplitText text="Turn Any Reel Into" />
+                <br />
+                <span className="gradient-text">
+                  <SplitText text="AI Intelligence" delay={0.07} />
+                </span>
+              </h1>
 
-              <motion.p className="hero-sub" custom={0.25} variants={fadeUp} initial="hidden" animate="visible">
-                Paste any Instagram Reel, YouTube Short, or TikTok URL. Six AI engines
-                analyze frames, speech, text, music, emotion, and trends — delivering
-                a complete intelligence report in under 60 seconds.
-              </motion.p>
+              <div className="hero-sub" style={{ marginBottom: '28px' }}>
+                <BlurText text="Paste any Instagram Reel, YouTube Short, or TikTok URL. Six AI engines analyze frames, speech, text, music, emotion, and trends — delivering a complete intelligence report in under 60 seconds." />
+              </div>
 
               <motion.div custom={0.4} variants={fadeUp} initial="hidden" animate="visible">
                 <div style={{display:'flex',gap:16,marginBottom:24,flexWrap:'wrap'}}>
@@ -352,21 +369,25 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
                 </div>
               </motion.div>
 
-              <motion.div className="hero-input-wrap" custom={0.55} variants={fadeUp} initial="hidden" animate="visible">
-                <div className="hero-input-bar">
-                  <span className="hero-input-icon">🔗</span>
-                  <input
-                    id="hero-url"
-                    className="hero-input"
-                    placeholder="Paste any Instagram Reel, YouTube Short or TikTok URL..."
-                    value={urlInput}
-                    onChange={e => { setUrlInput(e.target.value); setUrlError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
-                  />
-                  <button className="hero-input-btn" onClick={handleAnalyze} disabled={loading}>
-                    {loading ? <span style={{display:'inline-block',animation:'spin 1s linear infinite'}}>⟳</span> : <><span>Analyze</span><span className="arrow">→</span></>}
-                  </button>
-                </div>
+              <motion.div className="hero-input-wrap" custom={0.55} variants={fadeUp} initial="hidden" animate="visible" style={{ padding: '2px' }}>
+                <BorderGlow borderRadius={16}>
+                  <div className="hero-input-bar" style={{ background: 'transparent' }}>
+                    <span className="hero-input-icon">🔗</span>
+                    <input
+                      id="hero-url"
+                      className="hero-input"
+                      placeholder="Paste any Instagram Reel, YouTube Short or TikTok URL..."
+                      value={urlInput}
+                      onChange={e => { setUrlInput(e.target.value); setUrlError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
+                    />
+                    <StarBorder onClick={handleAnalyze} speed="4s">
+                      <div className="hero-input-btn" style={{ border: 'none', background: 'transparent', margin: 0, padding: '12px 24px' }}>
+                        {loading ? <span style={{display:'inline-block',animation:'spin 1s linear infinite'}}>⟳</span> : <><span>Analyze</span><span className="arrow" style={{ marginLeft: 6 }}>→</span></>}
+                      </div>
+                    </StarBorder>
+                  </div>
+                </BorderGlow>
                 {urlError && (
                   <motion.p initial={{opacity:0,y:-4}} animate={{opacity:1,y:0}} style={{fontSize:'0.78rem',color:'#F87171',marginTop:8,paddingLeft:4,fontFamily:'var(--font-body)'}}>
                     ⚠ {urlError}
@@ -456,26 +477,27 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <span style={{ fontSize: '10px', color: '#CBD5E1', letterSpacing: '0.05em', textTransform: 'uppercase' }}>AI Core Status</span>
-                  <span style={{ fontSize: '10px', color: '#57D98D', fontWeight: 'bold', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span className="hero-badge-dot" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#57D98D', boxShadow: '0 0 6px #57D98D' }}/> OPERATIONAL
+                  <span style={{ fontSize: '10px', color: heroHealth?.status === 'ok' ? '#57D98D' : '#F87171', fontWeight: 'bold', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="hero-badge-dot" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: heroHealth?.status === 'ok' ? '#57D98D' : '#F87171', boxShadow: `0 0 6px ${heroHealth?.status === 'ok' ? '#57D98D' : '#F87171'}` }}/>
+                    {heroHealth === null ? 'CONNECTING' : heroHealth?.status === 'ok' ? 'OPERATIONAL' : 'OFFLINE'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B' }}>PATHWAYS ACTIVE</span>
-                    <span style={{ color: '#3DD9FF', fontWeight: 500 }}>98.4%</span>
+                    <span style={{ color: '#64748B' }}>UPTIME</span>
+                    <span style={{ color: '#3DD9FF', fontWeight: 500 }}>{heroHealth?.uptime_seconds ? `${Math.round(heroHealth.uptime_seconds / 60)}m` : '—'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B' }}>DATA PACKETS</span>
-                    <span style={{ color: '#7C5CFC', fontWeight: 500 }}>14.7k/s</span>
+                    <span style={{ color: '#64748B' }}>JOBS PROCESSED</span>
+                    <span style={{ color: 'var(--purple)', fontWeight: 500 }}>{heroHealth?.jobs_processed ?? '—'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B' }}>LATENCY RATE</span>
-                    <span style={{ color: '#F5C96A', fontWeight: 500 }}>2.1ms</span>
+                    <span style={{ color: '#64748B' }}>AVG LATENCY</span>
+                    <span style={{ color: '#F5C96A', fontWeight: 500 }}>{heroHealth?.avg_latency_ms ? `${heroHealth.avg_latency_ms}ms` : '<200ms'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B' }}>SYSTEM UPTIME</span>
-                    <span style={{ color: '#F8FAFC', fontWeight: 500 }}>99.9%</span>
+                    <span style={{ color: '#64748B' }}>GEMINI API</span>
+                    <span style={{ color: '#F8FAFC', fontWeight: 500 }}>{heroHealth?.gemini_api_set ? '✓ Connected' : '✗ Not set'}</span>
                   </div>
                 </div>
               </motion.div>
@@ -491,102 +513,112 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
             <div className="bento">
               {/* Left Tall Card: Frame Extraction */}
               <div className="bento-left reveal">
-                <div className="card">
-                  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
-                    <div className="card-icon" style={{background:'rgba(124,92,252,0.12)'}}>🎞</div>
-                    <div>
-                      <div className="card-title">Frame Extraction & Vision AI</div>
-                      <div style={{fontSize:'0.75rem',color:'var(--tx-2)',fontFamily:'var(--font-body)'}}>Vision AI · OpenCV</div>
+                <GlareHover style={{ height: '100%' }}>
+                  <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+                      <div className="card-icon" style={{background:'rgba(124,92,252,0.12)'}}>🎞</div>
+                      <div>
+                        <div className="card-title">Frame Extraction & Vision AI</div>
+                        <div style={{fontSize:'0.75rem',color:'var(--tx-2)',fontFamily:'var(--font-body)'}}>Vision AI · OpenCV</div>
+                      </div>
+                    </div>
+                    <p className="card-desc">OpenCV extracts key frames every 3 seconds. Vision AI reads scenes, text, objects and full visual context with cinematic precision. Every moment is captured.</p>
+                    <div className="scan-visual" style={{ marginTop: '24px' }}>
+                      <div className="scan-line-inner"/>
+                      {[20,45,65,38,55,30,70].map((h,i) => (
+                        <div key={i} style={{position:'absolute',bottom:8,left:`${8+i*13}%`,width:8,height:h*0.6+'%',background:'rgba(124,92,252,0.3)',borderRadius:2,border:'1px solid rgba(124,92,252,0.4)'}}/>
+                      ))}
+                    </div>
+                    <div className="stat-bar" style={{ marginTop: 'auto', paddingTop: '16px' }}>
+                      <span className="stat-val">60fps</span>
+                      <span className="stat-lbl">Processing Speed</span>
                     </div>
                   </div>
-                  <p className="card-desc">OpenCV extracts key frames every 3 seconds. Vision AI reads scenes, text, objects and full visual context with cinematic precision. Every moment is captured.</p>
-                  <div className="scan-visual" style={{ marginTop: '24px' }}>
-                    <div className="scan-line-inner"/>
-                    {[20,45,65,38,55,30,70].map((h,i) => (
-                      <div key={i} style={{position:'absolute',bottom:8,left:`${8+i*13}%`,width:8,height:h*0.6+'%',background:'rgba(124,92,252,0.3)',borderRadius:2,border:'1px solid rgba(124,92,252,0.4)'}}/>
-                    ))}
-                  </div>
-                  <div className="stat-bar" style={{ marginTop: 'auto', paddingTop: '16px' }}>
-                    <span className="stat-val">60fps</span>
-                    <span className="stat-lbl">Processing Speed</span>
-                  </div>
-                </div>
+                </GlareHover>
               </div>
 
               {/* Right 2x2 Grid of Cards */}
               <div className="bento-right-grid">
                 {/* Speech */}
                 <div className="card-wrap reveal reveal-delay-1">
-                  <div className="card" style={{ height: '100%' }}>
-                    <div className="card-icon" style={{background:'rgba(61,217,255,0.10)',borderColor:'rgba(61,217,255,0.2)'}}>🎙</div>
-                    <div className="card-title">Speech Recognition</div>
-                    <p className="card-desc">Whisper transcribes every word with timestamps.</p>
-                    <div className="waveform-visual">
-                      {[1,2,3,4,5,6,7].map(i => <div key={i} className="wave-bar" style={{animationDelay:`${(i-1)*0.12}s`}}/>)}
+                  <GlareHover style={{ height: '100%' }}>
+                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                      <div className="card-icon" style={{background:'rgba(61,217,255,0.10)',borderColor:'rgba(61,217,255,0.2)'}}>🎙</div>
+                      <div className="card-title">Speech Recognition</div>
+                      <p className="card-desc">Whisper transcribes every word with timestamps.</p>
+                      <div className="waveform-visual">
+                        {[1,2,3,4,5,6,7].map(i => <div key={i} className="wave-bar" style={{animationDelay:`${(i-1)*0.12}s`}}/>)}
+                      </div>
+                      <div className="stat-bar">
+                        <span className="stat-val" style={{background:'linear-gradient(135deg,#3DD9FF,#7C5CFC)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>99%</span>
+                        <span className="stat-lbl">Accuracy</span>
+                      </div>
                     </div>
-                    <div className="stat-bar">
-                      <span className="stat-val" style={{background:'linear-gradient(135deg,#3DD9FF,#7C5CFC)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>99%</span>
-                      <span className="stat-lbl">Accuracy</span>
-                    </div>
-                  </div>
+                  </GlareHover>
                 </div>
 
                 {/* OCR */}
                 <div className="card-wrap reveal reveal-delay-2">
-                  <div className="card" style={{ height: '100%' }}>
-                    <div className="card-icon" style={{background:'rgba(245,201,106,0.10)',borderColor:'rgba(245,201,106,0.2)'}}>📝</div>
-                    <div className="card-title">OCR & Text</div>
-                    <p className="card-desc">On-screen text, captions, overlays extracted and indexed.</p>
-                    <div className="ocr-visual">
-                      <div className="ocr-box" style={{top:'15%',left:'8%',width:'38%',height:'22%'}}/>
-                      <div className="ocr-box" style={{top:'50%',left:'45%',width:'42%',height:'20%',animationDelay:'0.5s'}}/>
-                      <div className="ocr-box" style={{top:'72%',left:'10%',width:'30%',height:'18%',animationDelay:'1s'}}/>
+                  <GlareHover style={{ height: '100%' }}>
+                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                      <div className="card-icon" style={{background:'rgba(245,201,106,0.10)',borderColor:'rgba(245,201,106,0.2)'}}>📝</div>
+                      <div className="card-title">OCR & Text</div>
+                      <p className="card-desc">On-screen text, captions, overlays extracted and indexed.</p>
+                      <div className="ocr-visual">
+                        <div className="ocr-box" style={{top:'15%',left:'8%',width:'38%',height:'22%'}}/>
+                        <div className="ocr-box" style={{top:'50%',left:'45%',width:'42%',height:'20%',animationDelay:'0.5s'}}/>
+                        <div className="ocr-box" style={{top:'72%',left:'10%',width:'30%',height:'18%',animationDelay:'1s'}}/>
+                      </div>
+                      <div className="stat-bar">
+                        <span className="stat-val" style={{background:'linear-gradient(135deg,#F5C96A,#FF9F7A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>&lt;1s</span>
+                        <span className="stat-lbl">Per Frame</span>
+                      </div>
                     </div>
-                    <div className="stat-bar">
-                      <span className="stat-val" style={{background:'linear-gradient(135deg,#F5C96A,#FF9F7A)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>&lt;1s</span>
-                      <span className="stat-lbl">Per Frame</span>
-                    </div>
-                  </div>
+                  </GlareHover>
                 </div>
 
                 {/* Music */}
                 <div className="card-wrap reveal reveal-delay-1">
-                  <div className="card" style={{ height: '100%' }}>
-                    <div className="card-icon" style={{background:'rgba(87,217,141,0.10)',borderColor:'rgba(87,217,141,0.2)'}}>🎵</div>
-                    <div className="card-title">Music Detection</div>
-                    <p className="card-desc">Track ID, BPM, genre, and licensed audio fingerprints.</p>
-                    <div className="ripple-visual">
-                      <div style={{width:18,height:18,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 12px rgba(87,217,141,0.6)'}}/>
-                      {[1,2,3].map(i=><div key={i} className="ripple-ring" style={{animationDelay:`${(i-1)*0.7}s`}}/>)}
+                  <GlareHover style={{ height: '100%' }}>
+                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                      <div className="card-icon" style={{background:'rgba(87,217,141,0.10)',borderColor:'rgba(87,217,141,0.2)'}}>🎵</div>
+                      <div className="card-title">Music Detection</div>
+                      <p className="card-desc">Track ID, BPM, genre, and licensed audio fingerprints.</p>
+                      <div className="ripple-visual">
+                        <div style={{width:18,height:18,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 12px rgba(87,217,141,0.6)'}}/>
+                        {[1,2,3].map(i=><div key={i} className="ripple-ring" style={{animationDelay:`${(i-1)*0.7}s`}}/>)}
+                      </div>
+                      <div className="stat-bar">
+                        <span className="stat-val" style={{background:'linear-gradient(135deg,#57D98D,#3DD9FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>95%</span>
+                        <span className="stat-lbl">Precision</span>
+                      </div>
                     </div>
-                    <div className="stat-bar">
-                      <span className="stat-val" style={{background:'linear-gradient(135deg,#57D98D,#3DD9FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>95%</span>
-                      <span className="stat-lbl">Precision</span>
-                    </div>
-                  </div>
+                  </GlareHover>
                 </div>
 
                 {/* Emotion */}
                 <div className="card-wrap reveal reveal-delay-2">
-                  <div className="card" style={{ height: '100%' }}>
-                    <div className="card-icon" style={{background:'rgba(255,182,193,0.10)',borderColor:'rgba(255,182,193,0.2)'}}>😊</div>
-                    <div className="card-title">Emotion Analysis</div>
-                    <p className="card-desc">Facial expressions, vocal tone, and content sentiment combined.</p>
-                    <div style={{display:'flex',gap:6,marginTop:20,flexWrap:'wrap'}}>
-                      {[['Joy','#57D98D',85],['Trust','#7C5CFC',72],['Surprise','#F5C96A',54],['Anticipation','#3DD9FF',68]].map(([l,c,v])=>(
-                        <div key={l} style={{flex:1,minWidth:60}}>
-                          <div style={{fontSize:'0.65rem',color:'var(--tx-2)',fontFamily:'var(--font-body)',marginBottom:4}}>{l}</div>
-                          <div style={{height:4,borderRadius:4,background:'rgba(255,255,255,0.07)',overflow:'hidden'}}>
-                            <div style={{height:'100%',width:`${v}%`,background:c as string,borderRadius:4,transition:'width 1s'}}/>
+                  <GlareHover style={{ height: '100%' }}>
+                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                      <div className="card-icon" style={{background:'rgba(255,182,193,0.10)',borderColor:'rgba(255,182,193,0.2)'}}>😊</div>
+                      <div className="card-title">Emotion Analysis</div>
+                      <p className="card-desc">Facial expressions, vocal tone, and content sentiment combined.</p>
+                      <div style={{display:'flex',gap:6,marginTop:20,flexWrap:'wrap'}}>
+                        {[['Joy','#57D98D',85],['Trust','#7C5CFC',72],['Surprise','#F5C96A',54],['Anticipation','#3DD9FF',68]].map(([l,c,v])=>(
+                          <div key={l} style={{flex:1,minWidth:60}}>
+                            <div style={{fontSize:'0.65rem',color:'var(--tx-2)',fontFamily:'var(--font-body)',marginBottom:4}}>{l}</div>
+                            <div style={{height:4,borderRadius:4,background:'rgba(255,255,255,0.07)',overflow:'hidden'}}>
+                              <div style={{height:'100%',width:`${v}%`,background:c as string,borderRadius:4,transition:'width 1s'}}/>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                      <div className="stat-bar">
+                        <span className="stat-val" style={{background:'linear-gradient(135deg,#FFB6C1,#E0A0FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>12+</span>
+                        <span className="stat-lbl">Emotions</span>
+                      </div>
                     </div>
-                    <div className="stat-bar">
-                      <span className="stat-val" style={{background:'linear-gradient(135deg,#FFB6C1,#E0A0FF)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',backgroundClip:'text'}}>12+</span>
-                      <span className="stat-lbl">Emotions</span>
-                    </div>
-                  </div>
+                  </GlareHover>
                 </div>
               </div>
             </div>
@@ -771,35 +803,44 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
             </div>
             <div className="pricing-grid">
               {PLANS.map((p,i)=>(
-                <div key={p.name} className={`pricing-card${p.featured?' featured':''} reveal`} style={{transitionDelay:`${i*0.12}s`}}>
-                  {p.badge && <div className="pricing-badge">{p.badge}</div>}
-                  <div className="pricing-name">{p.name}</div>
-                  <div className="pricing-price">{p.price}</div>
-                  <div className="pricing-period">{p.period}</div>
-                  <div className="pricing-divider"/>
-                  {p.features.map(f=>(
-                    <div className="pricing-feature" key={f}>
-                      <span className="pricing-check">✓</span>{f}
+                <div key={p.name} className="reveal" style={{transitionDelay:`${i*0.12}s`}}>
+                  <SpotlightCard
+                    spotlightColor={p.featured ? 'rgba(61, 217, 255, 0.12)' : 'rgba(124, 92, 252, 0.12)'}
+                    borderColor={p.featured ? 'rgba(61, 217, 255, 0.3)' : 'rgba(124, 92, 252, 0.2)'}
+                  >
+                    <div className={`pricing-card${p.featured?' featured':''}`} style={{ border: 'none', background: 'transparent', margin: 0 }}>
+                      {p.badge && <div className="pricing-badge">{p.badge}</div>}
+                      <div className="pricing-name">{p.name}</div>
+                      <div className="pricing-price">{p.price}</div>
+                      <div className="pricing-period">{p.period}</div>
+                      <div className="pricing-divider"/>
+                      {p.features.map(f=>(
+                        <div className="pricing-feature" key={f}>
+                          <span className="pricing-check">✓</span>{f}
+                        </div>
+                      ))}
+                      <div className="pricing-cta" style={{marginTop:28}}>
+                        <button
+                          className={`btn ${p.featured?'btn-primary':'btn-secondary'}`}
+                          style={{width:'100%',justifyContent:'center'}}
+                          onClick={() => {
+                            if (p.name === 'Starter') {
+                              // Free plan — log in if not already, else scroll to analyze
+                              if (!getCurrentUser()) setShowAuth(true);
+                              else window.scrollTo({ top: 0, behavior: 'smooth' });
+                            } else if (p.name === 'Pro') {
+                              // Pro plan — open payment modal
+                              setPaymentPlan('Pro'); setShowPayment(true);
+                            } else if (p.name === 'Enterprise') {
+                              window.open('mailto:support@clipinsight.ai?subject=Enterprise Plan Inquiry', '_blank');
+                            }
+                          }}
+                        >
+                          {p.cta}
+                        </button>
+                      </div>
                     </div>
-                  ))}
-                  <div className="pricing-cta" style={{marginTop:28}}>
-                    <button
-                      className={`btn ${p.featured?'btn-primary':'btn-secondary'}`}
-                      style={{width:'100%',justifyContent:'center'}}
-                      onClick={() => {
-                        if (p.name === 'STARTER') {
-                          if (!getCurrentUser()) setShowAuth(true);
-                          else window.scrollTo({ top: 0, behavior: 'smooth' });
-                        } else if (p.name === 'PRO') {
-                          setPaymentPlan('Pro'); setShowPayment(true);
-                        } else {
-                          window.open('mailto:support@clipinsight.ai?subject=Enterprise Plan', '_blank');
-                        }
-                      }}
-                    >
-                      {p.cta}
-                    </button>
-                  </div>
+                  </SpotlightCard>
                 </div>
               ))}
             </div>

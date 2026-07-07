@@ -1,4 +1,5 @@
 'use client';
+// Developer Note: Main entry point for the ClipInsight Next.js landing portal.
 import { useState, useEffect, useCallback } from 'react';
 import * as React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';

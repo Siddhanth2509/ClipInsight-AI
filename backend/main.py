@@ -42,6 +42,7 @@ SERVER-SENT EVENTS (SSE):
   The double newline is the SSE spec's "end of message" delimiter.
 """
 
+# Developer Note: FastAPI main routing and initialization configurations.
 import uuid
 import asyncio
 import time

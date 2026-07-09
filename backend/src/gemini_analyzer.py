@@ -343,19 +343,61 @@ def analyze_video(
             break
         except Exception as e:
             last_err = e
-            err_msg = str(e)
-            if "429" in err_msg or "quota" in err_msg.lower() or "resource_exhausted" in err_msg.lower():
-                log(f"Model {model_name} quota hit, trying next model...")
-                continue
-            else:
-                log(f"Gemini API error on {model_name}: {e}")
-                return _demo_analysis(frames, transcript_data, duration_seconds)
+            log(f"Gemini API error on model {model_name}: {e}. Trying next fallback...")
+            continue
 
     if response is None:
         log(f"All Gemini models failed or quota exceeded: {last_err}")
-        return _demo_analysis(frames, transcript_data, duration_seconds)
-
-    log("Gemini responded — parsing JSON…")
+        
+        # ── OpenRouter Multimodal Fallback (DIS / Free Model) ──
+        from backend.src.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_MODEL
+        if OPENROUTER_API_KEY and not OPENROUTER_API_KEY.startswith("your_") and not OPENROUTER_API_KEY.startswith("PASTE_"):
+            log("Attempting visual analysis fallback via OpenRouter...")
+            try:
+                messages_content = []
+                # Add base64 frames
+                for f in frames_to_send:
+                    img_b64 = _load_frame_as_base64(Path(f["path"]))
+                    if img_b64:
+                        messages_content.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{img_b64['data']}"
+                            }
+                        })
+                # Add structured prompt
+                messages_content.append({
+                    "type": "text",
+                    "text": prompt
+                })
+                
+                from openai import OpenAI
+                or_client = OpenAI(
+                    api_key=OPENROUTER_API_KEY,
+                    base_url=OPENROUTER_BASE_URL,
+                    default_headers={
+                        "HTTP-Referer": "https://github.com/Siddhanth2509/ClipInsight-AI",
+                        "X-Title": "ClipInsight AI"
+                    }
+                )
+                
+                log(f"Calling OpenRouter model {OPENROUTER_MODEL}…")
+                or_response = or_client.chat.completions.create(
+                    model=OPENROUTER_MODEL,
+                    messages=[{"role": "user", "content": messages_content}],
+                    temperature=0.3,
+                    response_format={"type": "json_object"}
+                )
+                
+                raw_text = or_response.choices[0].message.content.strip()
+                log("Successfully generated visual analysis via OpenRouter!")
+            except Exception as or_err:
+                log(f"OpenRouter visual fallback failed: {or_err} — proceeding to demo analysis")
+                return _demo_analysis(frames, transcript_data, duration_seconds)
+        else:
+            return _demo_analysis(frames, transcript_data, duration_seconds)
+    else:
+        log("Gemini responded — parsing JSON…")
 
     # ── Parse and validate the JSON response ─────────────────────────────────
     try:

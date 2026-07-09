@@ -42,6 +42,13 @@ ZAI_BASE_URL: str = "https://api.z.ai/api/paas/v4"
 MINIMAX_API_KEY:  str = get_env_with_registry_fallback("MINIMAX_API_KEY", "")
 MINIMAX_BASE_URL: str = "https://api.minimax.io/v1"
 
+# OpenRouter AI — OpenAI-compatible API with Free Models option
+# Console: https://openrouter.ai/
+OPENROUTER_API_KEY:  str = get_env_with_registry_fallback("OPENROUTER_API_KEY", "")
+OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+OPENROUTER_MODEL:    str = get_env_with_registry_fallback("OPENROUTER_MODEL", "google/gemini-2.5-flash:free")
+
+
 # ── Directory Paths ───────────────────────────────────────────────────────────
 BASE_DIR   = Path(__file__).parent.parent          # /backend
 TEMP_DIR   = BASE_DIR / "temp"

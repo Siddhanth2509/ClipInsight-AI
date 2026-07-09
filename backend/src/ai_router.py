@@ -23,12 +23,14 @@ from backend.src.config import (
     SAKANA_API_KEY, SAKANA_BASE_URL,
     MINIMAX_API_KEY, MINIMAX_BASE_URL,
     ZAI_API_KEY, ZAI_BASE_URL,
+    OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_MODEL,
 )
 
 # ── Lazy-load OpenAI-compatible clients ──────────────────────────────────────
-_sakana_client:  Optional[OpenAI] = None
-_minimax_client: Optional[OpenAI] = None
-_zai_client:     Optional[OpenAI] = None
+_sakana_client:     Optional[OpenAI] = None
+_minimax_client:    Optional[OpenAI] = None
+_zai_client:        Optional[OpenAI] = None
+_openrouter_client: Optional[OpenAI] = None
 
 
 def _get_sakana() -> Optional[OpenAI]:
@@ -59,6 +61,24 @@ def _get_zai() -> Optional[OpenAI]:
             return None
         _zai_client = OpenAI(api_key=ZAI_API_KEY, base_url=ZAI_BASE_URL)
     return _zai_client
+
+
+def _get_openrouter() -> Optional[OpenAI]:
+    """Return OpenRouter client (OpenAI-compatible), or None if key missing."""
+    global _openrouter_client
+    if _openrouter_client is None:
+        if not OPENROUTER_API_KEY or OPENROUTER_API_KEY.startswith("your_") or OPENROUTER_API_KEY.startswith("PASTE_"):
+            return None
+        # OpenRouter expects custom extra headers (optional but recommended for identification)
+        _openrouter_client = OpenAI(
+            api_key=OPENROUTER_API_KEY,
+            base_url=OPENROUTER_BASE_URL,
+            default_headers={
+                "HTTP-Referer": "https://github.com/Siddhanth2509/ClipInsight-AI",
+                "X-Title": "ClipInsight AI"
+            }
+        )
+    return _openrouter_client
 
 
 def get_best_text_client() -> Tuple[Optional[OpenAI], str]:
@@ -115,6 +135,10 @@ def _execute_completion(
     zai_client = _get_zai()
     if zai_client:
         candidates.append((zai_client, "glm-4-flash", "Z.ai GLM"))
+
+    openrouter_client = _get_openrouter()
+    if openrouter_client:
+        candidates.append((openrouter_client, OPENROUTER_MODEL, "OpenRouter"))
 
     if not candidates:
         log("No text AI providers are configured (Sakana, MiniMax, or Z.ai keys missing)")

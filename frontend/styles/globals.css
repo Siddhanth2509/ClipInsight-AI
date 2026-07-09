@@ -3,7 +3,7 @@
    #020B18 base · #7C5CFC purple · #3DD9FF cyan · sakura pink
    ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -53,7 +53,7 @@ input, textarea { cursor: none; }
   --grad-hero: linear-gradient(135deg, #7C5CFC 0%, #3DD9FF 100%);
   --grad-card: linear-gradient(135deg, rgba(124,92,252,0.06) 0%, rgba(61,217,255,0.04) 100%);
 
-  --font-display: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-display: 'Space Grotesk', 'Plus Jakarta Sans', 'Inter', sans-serif;
   --font-body:    'Inter', sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
 
@@ -625,7 +625,8 @@ html[data-theme="ice-white"] {
   position: relative; overflow: hidden;
   transform-style: preserve-3d;
   transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
-              box-shadow 0.5s ease, border-color 0.3s;
+              box-shadow 0.5s cubic-bezier(0.22,1,0.36,1), 
+              border-color 0.4s cubic-bezier(0.22,1,0.36,1);
   will-change: transform;
 }
 .card::before {
@@ -639,7 +640,10 @@ html[data-theme="ice-white"] {
   background: linear-gradient(90deg, transparent, var(--purple-glow), transparent);
   opacity: 0; transition: opacity 0.35s;
 }
-.card:hover { border-color: var(--border-hi); }
+.card:hover { 
+  border-color: var(--purple-glow); 
+  box-shadow: 0 20px 40px -15px var(--purple-dim), 0 0 30px -10px var(--purple-glow);
+}
 .card:hover::before { opacity: 1; }
 .card:hover::after  { opacity: 1; }
 

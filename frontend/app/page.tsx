@@ -152,6 +152,18 @@ const THEMES = [
   { key: 'ice-white',     name: 'Ice White',     color: '#e8f4f8', border: '#94a3b8', tooltip: 'Ice White (Light)' },
 ];
 
+function getGlowColor(theme: string) {
+  switch (theme) {
+    case 'purple': return 'rgba(124, 92, 252, 0.18)';
+    case 'ocean-blue': return 'rgba(14, 165, 233, 0.22)';
+    case 'emerald-green': return 'rgba(16, 185, 129, 0.22)';
+    case 'sunset-orange': return 'rgba(234, 88, 12, 0.22)';
+    case 'royal-gold': return 'rgba(180, 83, 9, 0.22)';
+    case 'rose-pink': return 'rgba(190, 24, 93, 0.22)';
+    default: return 'rgba(255, 255, 255, 0.12)';
+  }
+}
+
 export default function Home() {
 const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','royal-gold','rose-pink'] as const;
 
@@ -514,8 +526,8 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
             <div className="bento">
               {/* Left Tall Card: Frame Extraction */}
               <div className="bento-left reveal">
-                <GlareHover style={{ height: '100%' }}>
-                  <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                <GlareHover style={{ height: '100%' }} glowColor={getGlowColor(theme)}>
+                  <div className="card" style={{ height: '100%' }}>
                     <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
                       <div className="card-icon" style={{background:'rgba(124,92,252,0.12)'}}>🎞</div>
                       <div>
@@ -542,8 +554,8 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
               <div className="bento-right-grid">
                 {/* Speech */}
                 <div className="card-wrap reveal reveal-delay-1">
-                  <GlareHover style={{ height: '100%' }}>
-                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                  <GlareHover style={{ height: '100%' }} glowColor={getGlowColor(theme)}>
+                    <div className="card" style={{ height: '100%' }}>
                       <div className="card-icon" style={{background:'rgba(61,217,255,0.10)',borderColor:'rgba(61,217,255,0.2)'}}>🎙</div>
                       <div className="card-title">Speech Recognition</div>
                       <p className="card-desc">Whisper transcribes every word with timestamps.</p>
@@ -560,8 +572,8 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
 
                 {/* OCR */}
                 <div className="card-wrap reveal reveal-delay-2">
-                  <GlareHover style={{ height: '100%' }}>
-                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                  <GlareHover style={{ height: '100%' }} glowColor={getGlowColor(theme)}>
+                    <div className="card" style={{ height: '100%' }}>
                       <div className="card-icon" style={{background:'rgba(245,201,106,0.10)',borderColor:'rgba(245,201,106,0.2)'}}>📝</div>
                       <div className="card-title">OCR & Text</div>
                       <p className="card-desc">On-screen text, captions, overlays extracted and indexed.</p>
@@ -580,8 +592,8 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
 
                 {/* Music */}
                 <div className="card-wrap reveal reveal-delay-1">
-                  <GlareHover style={{ height: '100%' }}>
-                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                  <GlareHover style={{ height: '100%' }} glowColor={getGlowColor(theme)}>
+                    <div className="card" style={{ height: '100%' }}>
                       <div className="card-icon" style={{background:'rgba(87,217,141,0.10)',borderColor:'rgba(87,217,141,0.2)'}}>🎵</div>
                       <div className="card-title">Music Detection</div>
                       <p className="card-desc">Track ID, BPM, genre, and licensed audio fingerprints.</p>
@@ -599,8 +611,8 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
 
                 {/* Emotion */}
                 <div className="card-wrap reveal reveal-delay-2">
-                  <GlareHover style={{ height: '100%' }}>
-                    <div className="card" style={{ height: '100%', border: 'none', background: 'transparent' }}>
+                  <GlareHover style={{ height: '100%' }} glowColor={getGlowColor(theme)}>
+                    <div className="card" style={{ height: '100%' }}>
                       <div className="card-icon" style={{background:'rgba(255,182,193,0.10)',borderColor:'rgba(255,182,193,0.2)'}}>😊</div>
                       <div className="card-title">Emotion Analysis</div>
                       <p className="card-desc">Facial expressions, vocal tone, and content sentiment combined.</p>

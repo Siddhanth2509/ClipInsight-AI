@@ -50,7 +50,7 @@ export default function GlareHover({
             left: `${coords.x - 90}%`,
             top: `${coords.y - 90}%`,
             pointerEvents: 'none',
-            zIndex: 1,
+            zIndex: 10,
             transform: 'translate(-50%, -50%)',
             mixBlendMode: 'overlay',
           }}

@@ -119,6 +119,10 @@ Open **http://localhost:3000** 🌸
 
 ## 💡 How the AI Pipeline Works
 
+### OpenRouter Fallback Integration
+To ensure high availability and bypass native API quota limitations, the pipeline implements an automatic OpenRouter fallback rotation loop. If the primary Google Gemini or Sakana API endpoints return rate-limit errors or quota exhaustion warnings, the visual analysis and copywriting suggestions tasks are seamlessly redirected to OpenRouter's meta-slug `openrouter/free` (or any custom configured model) to guarantee uninterrupted operations.
+
+
 ### Token Cost Per Analysis
 | Component | Tokens | Cost |
 |---|---|---|

@@ -69,7 +69,8 @@ def _get_openrouter() -> Optional[OpenAI]:
     if _openrouter_client is None:
         if not OPENROUTER_API_KEY or OPENROUTER_API_KEY.startswith("your_") or OPENROUTER_API_KEY.startswith("PASTE_"):
             return None
-        # OpenRouter expects custom extra headers (optional but recommended for identification)
+        # OpenRouter expects custom extra headers (optional but recommended for identification).
+        # We reuse the client instance to avoid socket leaks during high-frequency fallback rotations.
         _openrouter_client = OpenAI(
             api_key=OPENROUTER_API_KEY,
             base_url=OPENROUTER_BASE_URL,

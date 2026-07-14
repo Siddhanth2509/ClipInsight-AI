@@ -21,6 +21,7 @@ export default function GlareHover({
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
+    // Calculate mouse position relative to the container element
     setCoords({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top

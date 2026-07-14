@@ -81,6 +81,7 @@ app = FastAPI(
 #   Our Next.js app runs on localhost:3000, FastAPI on localhost:8000.
 #   Different ports = different "origin" = browser blocks the request.
 #   CORS middleware adds response headers telling the browser: "It's OK."
+#   This allows the Next.js single-page application to safely communicate with our Python server.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],

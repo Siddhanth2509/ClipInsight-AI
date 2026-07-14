@@ -46,7 +46,8 @@ MINIMAX_BASE_URL: str = "https://api.minimax.io/v1"
 # Console: https://openrouter.ai/
 OPENROUTER_API_KEY:  str = get_env_with_registry_fallback("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-OPENROUTER_MODEL:    str = get_env_with_registry_fallback("OPENROUTER_MODEL", "google/gemini-2.5-flash:free")
+# Default to stable 'openrouter/free' router meta-slug to auto-balance traffic among active free models
+OPENROUTER_MODEL:    str = get_env_with_registry_fallback("OPENROUTER_MODEL", "openrouter/free")
 
 
 # ── Directory Paths ───────────────────────────────────────────────────────────

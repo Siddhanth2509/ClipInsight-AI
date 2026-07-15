@@ -634,13 +634,7 @@ html[data-theme="ice-white"] {
   position: relative; z-index: 2;
   padding: 120px 60px; max-width: 1280px; margin: 0 auto;
 }
-/* Thin themed accent line between sections */
-.section::before {
-  content: ''; display: block;
-  height: 1px; width: 100%; margin-bottom: 0;
-  background: linear-gradient(90deg, transparent, var(--purple-dim), var(--cyan-dim), transparent);
-  position: absolute; top: 0; left: 0; right: 0;
-}
+/* Thin themed accent line removed to blend sections together seamlessly */
 /* Subtle radial glow from the theme colour into each section */
 .section::after {
   content: ''; pointer-events: none;

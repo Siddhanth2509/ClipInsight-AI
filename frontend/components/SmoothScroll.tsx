@@ -24,6 +24,17 @@ export default function SmoothScroll({ children }: SmoothScrollProps) {
 
     lenisRef.current = lenis;
 
+    // Listen to scroll events to set CSS variables for parallax and blending
+    lenis.on('scroll', (e) => {
+      const scrollY = e.animatedScroll;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollPercent = maxScroll > 0 ? scrollY / maxScroll : 0;
+      
+      document.documentElement.style.setProperty('--scroll-y', `${scrollY}px`);
+      document.documentElement.style.setProperty('--scroll-y-raw', `${scrollY}`);
+      document.documentElement.style.setProperty('--scroll-percent', `${scrollPercent}`);
+    });
+
     // Connect to requestAnimationFrame ticker
     let rfId: number;
     function raf(time: number) {

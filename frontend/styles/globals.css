@@ -100,6 +100,7 @@ input, textarea { cursor: none; }
 
 /* ── 2. Ocean Blue Theme (deep navy-teal) ── */
 html[data-theme="ocean-blue"] {
+  --bg-base:    #030812;  /* custom tinted canvas background */
   --purple:      #0369A1;
   --purple-dim:  rgba(3, 105, 161, 0.15);
   --purple-glow: rgba(3, 105, 161, 0.45);
@@ -124,6 +125,7 @@ html[data-theme="ocean-blue"] {
 
 /* ── 3. Emerald Green Theme (deep forest) ── */
 html[data-theme="emerald-green"] {
+  --bg-base:    #020907;  /* custom tinted canvas background */
   --purple:      #059669;
   --purple-dim:  rgba(5, 150, 105, 0.15);
   --purple-glow: rgba(5, 150, 105, 0.45);
@@ -148,6 +150,7 @@ html[data-theme="emerald-green"] {
 
 /* ── 4. Sunset Orange Theme (deep burnt orange) ── */
 html[data-theme="sunset-orange"] {
+  --bg-base:    #090503;  /* custom tinted canvas background */
   --purple:      #EA580C;
   --purple-dim:  rgba(234, 88, 12, 0.15);
   --purple-glow: rgba(234, 88, 12, 0.45);
@@ -172,6 +175,7 @@ html[data-theme="sunset-orange"] {
 
 /* ── 5. Royal Gold Theme (deep amber) ── */
 html[data-theme="royal-gold"] {
+  --bg-base:    #080502;  /* custom tinted canvas background */
   --purple:      #B45309;
   --purple-dim:  rgba(180, 83, 9, 0.15);
   --purple-glow: rgba(180, 83, 9, 0.45);
@@ -196,6 +200,7 @@ html[data-theme="royal-gold"] {
 
 /* ── 6. Rose Pink Theme (deep magenta) ── */
 html[data-theme="rose-pink"] {
+  --bg-base:    #090306;  /* custom tinted canvas background */
   --purple:      #BE185D;
   --purple-dim:  rgba(190, 24, 93, 0.15);
   --purple-glow: rgba(190, 24, 93, 0.45);
@@ -262,6 +267,9 @@ html[data-theme="ice-white"] {
 
 .bg-layer-glows {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  /* Multi-plane parallax: shift the entire ambient layer slightly upward/downward on scroll */
+  transform: translate3d(0, calc(var(--scroll-y, 0px) * -0.22), 0);
+  will-change: transform;
 }
 .bg-glow {
   position: absolute; border-radius: 50%; filter: blur(120px);
@@ -300,14 +308,25 @@ html[data-theme="ice-white"] {
     linear-gradient(var(--grid-color) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 72px 72px;
+  /* Grid slides slowly upward on scroll (secondary plane parallax) */
+  transform: translate3d(0, calc(var(--scroll-y, 0px) * -0.09), 0);
+  will-change: transform;
+  /* Fade out grid opacity by 50% on deep scroll to seamlessly blend into section 2 */
+  opacity: calc(1 - var(--scroll-percent, 0) * 0.5);
   mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 100%);
+  transition: opacity 0.3s ease;
 }
 
 .bg-dots {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
-  background-size: 36px 36px; opacity: 0.25;
+  background-size: 36px 36px;
+  /* Dots slide slightly faster for a 3-dimensional parallax feel */
+  transform: translate3d(0, calc(var(--scroll-y, 0px) * -0.16), 0);
+  will-change: transform;
+  opacity: calc(0.25 - var(--scroll-percent, 0) * 0.15);
+  transition: opacity 0.3s ease;
 }
 
 /* Scan line sweep */

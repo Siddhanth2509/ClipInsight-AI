@@ -20,8 +20,8 @@ build/
 secrets.json
 credentials.json
 GlobalAPIKeys.ps1
-cookies.txt
-*cookies.txt
+cookies*.txt
+*cookies*.txt
 
 # ─── Virtual environments ─────────────────────────────────────────────────────
 venv/

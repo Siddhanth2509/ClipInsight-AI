@@ -24,54 +24,78 @@ img, video { max-width: 100%; }
 input, textarea { cursor: none; }
 
 /* ── CSS Variables ── */
+/* Token source: visual analysis of getlayers.ai, godly.website, refero.design */
 :root {
-  --bg-base:    #020B18;
-  --bg-surface: rgba(7, 17, 31, 0.95);
-  --bg-card:    rgba(12, 20, 38, 0.96);
-  --bg-raised:  rgba(18, 28, 50, 0.98);
-  --bg-nav:     rgba(2, 11, 24, 0.80);
-  --bg-nav-scrolled: rgba(2, 11, 24, 0.95);
+  /* === Backgrounds: from GetLayers #070708, Godly #0c0c0e, Refero #0a0a0c === */
+  --bg-base:    #070810;  /* getlayers: rgb(7,7,8) → adjusted for purple tint */
+  --bg-surface: rgba(12, 12, 16, 0.97);
+  --bg-card:    rgba(255, 255, 255, 0.02);  /* getlayers: rgba(255,255,255,0.02) */
+  --bg-card-hover: rgba(255, 255, 255, 0.04); /* hover lift */
+  --bg-raised:  rgba(22, 22, 26, 0.98);    /* refero: rgb(22,22,23) elevated */
+  --bg-nav:     rgba(255, 255, 255, 0.03); /* getlayers nav: rgba(255,255,255,0.03) */
+  --bg-nav-scrolled: rgba(7, 8, 16, 0.90);
 
   --purple:      #7C5CFC;
-  --purple-dim:  rgba(124, 92, 252, 0.15);
-  --purple-glow: rgba(124, 92, 252, 0.40);
+  --purple-dim:  rgba(124, 92, 252, 0.12);
+  --purple-glow: rgba(124, 92, 252, 0.35);
   --cyan:        #3DD9FF;
-  --cyan-dim:    rgba(61, 217, 255, 0.12);
+  --cyan-dim:    rgba(61, 217, 255, 0.10);
   --gold:        #F5C96A;
   --green:       #57D98D;
   --sakura:      #FFB6C1;
 
   --tx-0: #F8FAFC;
-  --tx-1: #CBD5E1;
-  --tx-2: #64748B;
-  --tx-3: #334155;
+  --tx-1: rgba(255, 255, 255, 0.60); /* getlayers secondary */
+  --tx-2: rgba(255, 255, 255, 0.35); /* getlayers muted */
+  --tx-3: rgba(255, 255, 255, 0.18);
 
-  --border:      rgba(255,255,255,0.07);
-  --border-hi:   rgba(124,92,252,0.35);
-  --border-cyan: rgba(61,217,255,0.22);
+  /* === Borders: from GetLayers rgba(255,255,255,0.05), Godly bevel system === */
+  --border:      rgba(255, 255, 255, 0.05); /* getlayers: rgba(255,255,255,0.05) */
+  --border-md:   rgba(255, 255, 255, 0.08); /* godly/refero: rgba(255,255,255,0.08) */
+  --border-hi:   rgba(124, 92, 252, 0.30);
+  --border-cyan: rgba(61, 217, 255, 0.20);
+
+  /* === Glass bevel: from Godly button shadow (exact 4-side measurement) === */
+  --glass-bevel: 0px -1px 0px rgba(255,255,255,0.35),
+                 1px 0px 0px rgba(255,255,255,0.15),
+                 -1px 0px 0px rgba(255,255,255,0.15),
+                 0px 1px 0px rgba(255,255,255,0.30),
+                 0px 1px 1px rgba(0,0,0,0.20);
+  /* Inner top glow: from GetLayers card inset */
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  /* === Blur: GetLayers nav=blur(20px), card=blur(10px), Godly=saturate(150%) blur(12px) === */
+  --blur-nav:  blur(20px);              /* getlayers nav: blur(20px) */
+  --blur-card: blur(10px);              /* getlayers card: blur(10px) */
+  --blur-btn:  saturate(150%) blur(12px); /* godly button */
+  --blur-modal: blur(40px);
 
   --grad-hero: linear-gradient(135deg, #7C5CFC 0%, #3DD9FF 100%);
-  --grad-card: linear-gradient(135deg, rgba(124,92,252,0.06) 0%, rgba(61,217,255,0.04) 100%);
+  --grad-card: linear-gradient(135deg, rgba(124,92,252,0.05) 0%, rgba(61,217,255,0.03) 100%);
 
-  /* Display typography token (using geometric Space Grotesk for premium tech branding) */
+  /* === Typography: GetLayers h1=56px Space Grotesk, letter-spacing=-0.03em === */
   --font-display: 'Space Grotesk', 'Plus Jakarta Sans', 'Inter', sans-serif;
   --font-body:    'Inter', sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
+  --heading-tracking: -0.03em;  /* getlayers h1: letter-spacing: -0.03em */
+  --heading-lh: 1.08;           /* tight heads from getlayers/refero */
 
-  --r-sm:  8px;  --r-md: 12px; --r-lg: 20px;
-  --r-xl:  28px; --r-2xl: 40px;
+  /* === Border radius: GetLayers pill=9999px card=16px, Refero input=12px === */
+  --r-xs:  4px;  --r-sm: 8px;   --r-md: 12px;
+  --r-lg:  16px; --r-xl: 20px;  --r-2xl: 24px;
+  --r-pill: 9999px;  /* getlayers nav, buttons */
 
   /* Glow presets */
-  --glow-1: rgba(124, 92, 252, 0.35);
-  --glow-1-dim: rgba(124, 92, 252, 0.05);
-  --glow-2: rgba(0, 240, 255, 0.26);
-  --glow-2-dim: rgba(0, 240, 255, 0.04);
-  --glow-3: rgba(124, 92, 252, 0.22);
-  --glow-3-dim: rgba(124, 92, 252, 0.03);
-  --glow-4: rgba(255, 182, 193, 0.16);
+  --glow-1: rgba(124, 92, 252, 0.30);
+  --glow-1-dim: rgba(124, 92, 252, 0.04);
+  --glow-2: rgba(61, 217, 255, 0.22);
+  --glow-2-dim: rgba(61, 217, 255, 0.03);
+  --glow-3: rgba(124, 92, 252, 0.18);
+  --glow-3-dim: rgba(124, 92, 252, 0.02);
+  --glow-4: rgba(255, 182, 193, 0.14);
   --glow-4-dim: rgba(255, 182, 193, 0.02);
 
-  --grid-color: rgba(124, 92, 252, 0.035);
+  --grid-color: rgba(124, 92, 252, 0.03);
 }
 
 /* ── 2. Ocean Blue Theme (deep navy-teal) ── */
@@ -310,18 +334,21 @@ html[data-theme="ice-white"] {
    NAVIGATION
    ════════════════════════════════════════ */
 .nav {
+  /* Token: GetLayers nav — blur(20px), rgba(255,255,255,0.03) background, rgba(255,255,255,0.08) border */
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 48px; height: 72px;
+  padding: 0 48px; height: 68px;
   background: var(--bg-nav);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid var(--border);
+  backdrop-filter: var(--blur-nav);         /* blur(20px) — getlayers */
+  -webkit-backdrop-filter: var(--blur-nav);
+  border-bottom: 1px solid var(--border-md); /* rgba(255,255,255,0.08) — godly/refero */
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04); /* subtle top glint */
   transition: background 0.3s, box-shadow 0.3s;
 }
 .nav.scrolled {
   background: var(--bg-nav-scrolled);
-  box-shadow: 0 4px 32px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.4),
+              0 1px 0 rgba(255,255,255,0.05);
 }
 .nav-logo {
   display: flex; align-items: center; gap: 10px;
@@ -391,52 +418,62 @@ html[data-theme="ice-white"] {
    ════════════════════════════════════════ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
-  gap: 8px; padding: 13px 28px;
-  font-family: var(--font-body); font-size: 0.9rem; font-weight: 600;
-  border-radius: 12px; border: none;
-  transition: all 0.28s cubic-bezier(0.34,1.56,0.64,1);
+  gap: 8px; padding: 11px 24px;
+  font-family: var(--font-body); font-size: 0.875rem; font-weight: 500;
+  border-radius: var(--r-pill);   /* 9999px — getlayers, godly button radius */
+  border: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* getlayers fast transition */
   position: relative; overflow: hidden;
 }
-/* Ripple */
-.btn::after {
-  content: ''; position: absolute;
-  width: 0; height: 0; border-radius: 50%;
-  background: rgba(255,255,255,0.25);
-  transform: translate(-50%,-50%);
-  transition: width 0.5s ease, height 0.5s ease, opacity 0.5s;
-  opacity: 0;
-}
-.btn:active::after { width: 200px; height: 200px; opacity: 0; }
 /* Shine sweep */
 .btn::before {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent 50%);
-  opacity: 0; transition: opacity 0.25s;
+  background: linear-gradient(135deg, rgba(255,255,255,0.10), transparent 50%);
+  opacity: 0; transition: opacity 0.2s;
+  border-radius: inherit;
 }
 .btn:hover::before { opacity: 1; }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-glow) 100%);
+  /* Token: Godly button — rgba(90,90,90,0.4) bg + saturate(150%) blur(12px) + 4-side bevel shadow */
+  background: rgba(90, 90, 90, 0.4);
   color: #fff;
-  box-shadow: 0 0 0 1px var(--purple-glow), 0 8px 32px var(--purple-dim);
+  backdrop-filter: var(--blur-btn);    /* saturate(150%) blur(12px) — godly */
+  -webkit-backdrop-filter: var(--blur-btn);
+  box-shadow: var(--glass-bevel);      /* 4-side bevel — godly exact measurement */
 }
 .btn-primary:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 0 0 1px var(--purple), 0 16px 48px var(--purple-glow);
+  background: rgba(110, 110, 110, 0.5);
+  transform: translateY(-1px);
+  box-shadow: var(--glass-bevel), 0 8px 24px rgba(0,0,0,0.3);
 }
 .btn-primary:active { transform: translateY(0) scale(0.98); }
 
+/* CTA accent variant — keeps the purple brand gradient for primary actions */
+.btn-accent {
+  background: linear-gradient(135deg, var(--purple) 0%, #5B3FD4 100%);
+  color: #fff; border-radius: var(--r-pill);
+  box-shadow: 0 0 0 1px rgba(124,92,252,0.40), 0 4px 20px rgba(124,92,252,0.30);
+}
+.btn-accent:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 0 0 1px var(--purple), 0 8px 32px rgba(124,92,252,0.45);
+}
+.btn-accent:active { transform: translateY(0) scale(0.98); }
+
 .btn-secondary {
+  /* Token: glass border style — rgba(255,255,255,0.08) border, transparent bg */
   background: transparent; color: var(--tx-0);
-  border: 1px solid var(--border-hi);
+  border: 1px solid var(--border-md);  /* rgba(255,255,255,0.08) */
+  box-shadow: var(--glass-inset);
 }
 .btn-secondary:hover {
-  border-color: var(--purple); background: rgba(124,92,252,0.08);
+  border-color: var(--border-hi); background: rgba(255,255,255,0.04);
   transform: translateY(-1px);
 }
 
-.btn-ghost { background: transparent; color: var(--tx-1); border: none; padding: 10px 16px; }
-.btn-ghost:hover { color: var(--tx-0); }
+.btn-ghost { background: transparent; color: var(--tx-1); border: none; padding: 10px 16px; border-radius: var(--r-pill); }
+.btn-ghost:hover { color: var(--tx-0); background: rgba(255,255,255,0.04); }
 
 /* ════════════════════════════════════════
    HERO SECTION
@@ -482,10 +519,12 @@ html[data-theme="ice-white"] {
 }
 
 .hero-title {
+  /* Token: GetLayers h1 — 56px, Space Grotesk, letter-spacing: -0.03em, line-height: 1.1 */
   font-family: var(--font-display);
-  font-size: clamp(38px, 5.5vw, 76px);
-  font-weight: 800; letter-spacing: -0.035em;
-  line-height: 1.01; margin-bottom: 26px; color: var(--tx-0);
+  font-size: clamp(40px, 5.2vw, 72px);
+  font-weight: 700;                    /* getlayers: 700, not 800 — more refined */
+  letter-spacing: var(--heading-tracking); /* -0.03em — exact getlayers h1 */
+  line-height: 1.08; margin-bottom: 24px; color: var(--tx-0);
 }
 .hero-title .gradient-text {
   background: var(--grad-hero);
@@ -619,34 +658,46 @@ html[data-theme="ice-white"] {
 .card-wrap { perspective: 1000px; height: 100%; }
 
 .card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
-  padding: 36px;
+  /* Tokens: GetLayers card — 16px radius, rgba(255,255,255,0.02) bg, blur(10px), rgba(255,255,255,0.05) border */
+  /* Godly inner bevel: inset 0 1px 0 rgba(255,255,255,0.08) */
+  background: var(--bg-card);               /* rgba(255,255,255,0.02) — getlayers */
+  border: 1px solid var(--border);          /* rgba(255,255,255,0.05) — getlayers */
+  border-radius: var(--r-lg);               /* 16px — getlayers card radius */
+  padding: 32px;
   position: relative; overflow: hidden;
   transform-style: preserve-3d;
+  backdrop-filter: var(--blur-card);        /* blur(10px) — getlayers */
+  -webkit-backdrop-filter: var(--blur-card);
+  box-shadow: var(--glass-inset),           /* inset 0 1px 0 rgba(255,255,255,0.08) — godly */
+              0 1px 3px rgba(0, 0, 0, 0.30); /* subtle base shadow */
   transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1),
-              box-shadow 0.5s cubic-bezier(0.22,1,0.36,1), 
-              border-color 0.4s cubic-bezier(0.22,1,0.36,1);
+              box-shadow 0.4s cubic-bezier(0.22,1,0.36,1),
+              border-color 0.3s cubic-bezier(0.22,1,0.36,1),
+              background-color 0.3s;
   will-change: transform;
 }
 .card::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 60%);
-  opacity: 0; transition: opacity 0.35s; pointer-events: none;
-  border-radius: inherit;
+  /* Top edge shine — getlayers/godly pattern */
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 40%,
+    rgba(255,255,255,0.20) 50%, rgba(255,255,255,0.12) 60%, transparent 100%);
+  opacity: 0.6; pointer-events: none;
 }
 .card::after {
+  /* Accent glow top line on hover */
   content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
   background: linear-gradient(90deg, transparent, var(--purple-glow), transparent);
   opacity: 0; transition: opacity 0.35s;
 }
-.card:hover { 
-  border-color: var(--purple-glow); 
-  box-shadow: 0 20px 40px -15px var(--purple-dim), 0 0 30px -10px var(--purple-glow);
+.card:hover {
+  background: var(--bg-card-hover);        /* rgba(255,255,255,0.04) — hover lift */
+  border-color: var(--border-md);          /* rgba(255,255,255,0.08) on hover */
+  box-shadow: var(--glass-inset),
+              0 8px 32px rgba(0, 0, 0, 0.40),  /* getlayers card_hover shadow */
+              0 0 40px var(--purple-dim),       /* accent glow */
+              0 0 1px var(--purple-glow);
 }
-.card:hover::before { opacity: 1; }
-.card:hover::after  { opacity: 1; }
+.card:hover::after { opacity: 1; }
 
 .card-icon {
   width: 52px; height: 52px; border-radius: 14px;
@@ -702,6 +753,76 @@ html[data-theme="ice-white"] {
 
 .bento-hero { grid-column: 1; grid-row: 1/3; }
 .bento-sm   { }
+
+/* ════════════════════════════════════════
+   MARQUEE / TICKER SYSTEM
+   Token source: Landingfolio — CSS transform:translateX, will-change:transform
+   GPU-accelerated, 60fps, no JavaScript, pauses on hover
+   ════════════════════════════════════════ */
+.marquee-outer {
+  /* Container: overflow hidden to clip the scrolling content */
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  /* Fade edges: mask-image so items fade in/out at edges */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 12%, black 88%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, black 12%, black 88%, transparent 100%);
+}
+.marquee-track {
+  /* Track: contains two identical sets of items for seamless looping */
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 28s linear infinite;
+  will-change: transform;  /* GPU acceleration — Landingfolio pattern */
+}
+/* Pause on hover — improves readability (Landingfolio best practice) */
+.marquee-outer:hover .marquee-track {
+  animation-play-state: paused;
+}
+/* Reverse direction variant */
+.marquee-track.marquee-reverse {
+  animation-direction: reverse;
+  animation-duration: 34s;
+}
+@keyframes marquee-scroll {
+  /* translateX only — GPU composited, never triggers layout */
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); } /* -50% because we duplicate the items */
+}
+.marquee-item {
+  /* Each brand pill/item */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  margin: 0 8px;
+  background: rgba(255, 255, 255, 0.02); /* getlayers: rgba(255,255,255,0.02) */
+  border: 1px solid rgba(255, 255, 255, 0.05); /* getlayers: rgba(255,255,255,0.05) */
+  border-radius: 9999px;  /* pill — getlayers */
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.40); /* muted — getlayers secondary */
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  transition: color 0.2s, border-color 0.2s;
+}
+.marquee-item:hover {
+  color: rgba(255, 255, 255, 0.70);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.marquee-item .marquee-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; opacity: 0.5;
+  flex-shrink: 0;
+}
+/* Wrapper section */
+.marquee-section {
+  position: relative; z-index: 2;
+  padding: 28px 0;
+  display: flex; flex-direction: column; gap: 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
 
 /* Mini animations inside feature cards */
 .scan-visual { position: relative; width: 100%; height: 80px; border-radius: 10px; overflow: hidden; background: rgba(7,17,31,0.5); margin-top: 20px; }

@@ -517,6 +517,38 @@ const CYCLABLE_THEMES = ['purple','ocean-blue','emerald-green','sunset-orange','
             </motion.div>
           </section>
 
+          {/* ── MARQUEE TICKER (Landingfolio pattern: CSS translateX, GPU, pause-on-hover) ── */}
+          <div className="marquee-section">
+            <div style={{ textAlign: 'center', fontSize: '0.72rem', fontWeight: 500, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', marginBottom: '4px', fontFamily: 'var(--font-body)' }}>
+              Trusted by engineers from
+            </div>
+            {/* Row 1: Company names — forward scroll */}
+            <div className="marquee-outer">
+              <div className="marquee-track">
+                {/* Duplicate twice for seamless loop */}
+                {['Google', 'Meta', 'OpenAI', 'Netflix', 'Stripe', 'Vercel', 'Linear', 'Notion', 'Figma', 'Shopify', 'Amazon', 'Anthropic',
+                  'Google', 'Meta', 'OpenAI', 'Netflix', 'Stripe', 'Vercel', 'Linear', 'Notion', 'Figma', 'Shopify', 'Amazon', 'Anthropic'].map((name, i) => (
+                  <span key={i} className="marquee-item">
+                    <span className="marquee-dot"/>
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {/* Row 2: Tool names — reverse scroll */}
+            <div className="marquee-outer">
+              <div className="marquee-track marquee-reverse">
+                {['Gemini API', 'OpenCV', 'PyTorch', 'CLIP', 'Whisper', 'Transformers', 'Three.js', 'FastAPI', 'Next.js', 'TensorFlow', 'LangChain', 'HuggingFace',
+                  'Gemini API', 'OpenCV', 'PyTorch', 'CLIP', 'Whisper', 'Transformers', 'Three.js', 'FastAPI', 'Next.js', 'TensorFlow', 'LangChain', 'HuggingFace'].map((name, i) => (
+                  <span key={i} className="marquee-item" style={{ color: 'rgba(124, 92, 252, 0.45)', borderColor: 'rgba(124,92,252,0.08)' }}>
+                    <span className="marquee-dot"/>
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* ── FEATURES BENTO ── */}
           <section className="section" id="features">
             <div className="section-label">Six AI Engines</div>

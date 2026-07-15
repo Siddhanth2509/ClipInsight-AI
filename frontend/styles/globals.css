@@ -1186,6 +1186,14 @@ html[data-theme="ice-white"] .theme-selector-bar {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   position: relative;
 }
+.theme-dot::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+}
 .theme-dot:hover {
   transform: scale(1.35);
   border-color: rgba(255,255,255,0.5);

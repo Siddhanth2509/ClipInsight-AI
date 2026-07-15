@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import GlobalOverlays from '@/components/GlobalOverlays';
+import SmoothScroll from '@/components/SmoothScroll';
 import '../styles/globals.css';
 
 export const metadata: Metadata = {
@@ -22,10 +23,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body suppressHydrationWarning>
-        {/* Client-side global overlays: particle field, sakura, cursor */}
-        <GlobalOverlays />
-        {children}
+        <SmoothScroll>
+          {/* Client-side global overlays: particle field, sakura, cursor */}
+          <GlobalOverlays />
+          {children}
+        </SmoothScroll>
       </body>
     </html>
   );
 }
+

@@ -45,15 +45,16 @@ export default function GlareHover({
         <div
           style={{
             position: 'absolute',
-            width: '180%',
-            height: '180%',
-            background: `radial-gradient(circle, ${glowColor} 0%, transparent 60%)`,
-            left: `${coords.x - 90}%`,
-            top: `${coords.y - 90}%`,
+            width: '320px',
+            height: '320px',
+            background: `radial-gradient(circle, ${glowColor} 0%, transparent 65%)`,
+            left: `${coords.x}px`,
+            top: `${coords.y}px`,
             pointerEvents: 'none',
             zIndex: 10,
             transform: 'translate(-50%, -50%)',
-            mixBlendMode: 'overlay',
+            mixBlendMode: 'screen',
+            willChange: 'left, top',
           }}
         />
       )}

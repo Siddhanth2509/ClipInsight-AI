@@ -289,29 +289,6 @@ export default function LiquidBlobBackground() {
     };
     window.addEventListener('mousemove', handleMouseMove);
 
-    // Dynamic Theme Listener
-    const handleThemeChange = (e: Event) => {
-      const activeTheme = (e as CustomEvent).detail;
-      const themeColors = THEME_GLSL_COLORS[activeTheme] || THEME_GLSL_COLORS.purple;
-      
-      // Interpolate colors dynamically
-      const targetC1 = new THREE.Color(themeColors.color1);
-      const targetC2 = new THREE.Color(themeColors.color2);
-
-      // Transition color values
-      let progress = 0;
-      const transition = () => {
-        progress += 0.06;
-        activeColorsRef.current.c1.lerp(targetC1, 0.1);
-        activeColorsRef.current.c2.lerp(targetC2, 0.1);
-        if (progress < 1.0) {
-          requestAnimationFrame(transition);
-        }
-      };
-      transition();
-    };
-    window.addEventListener('theme-change', handleThemeChange);
-
     // Resize Event
     const handleResize = () => {
       const w = window.innerWidth;
@@ -342,6 +319,16 @@ export default function LiquidBlobBackground() {
       time += 0.012;
       uniforms.iTime.value = time;
 
+      // Sync theme colors dynamically on every frame to guarantee synchronization
+      const activeTheme = document.documentElement.getAttribute('data-theme') || 'purple';
+      const themeColors = THEME_GLSL_COLORS[activeTheme] || THEME_GLSL_COLORS.purple;
+      
+      const targetC1 = new THREE.Color(themeColors.color1);
+      const targetC2 = new THREE.Color(themeColors.color2);
+      
+      uniforms.uColor1.value.lerp(targetC1, 0.08);
+      uniforms.uColor2.value.lerp(targetC2, 0.08);
+
       // Smooth mouse tracking interpolation
       currentMouseX += (targetMouseX - currentMouseX) * 0.05;
       currentMouseY += (targetMouseY - currentMouseY) * 0.05;
@@ -361,7 +348,6 @@ export default function LiquidBlobBackground() {
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('theme-change', handleThemeChange);
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
       renderer.dispose();

@@ -42,6 +42,12 @@ SERVER-SENT EVENTS (SSE):
   The double newline is the SSE spec's "end of message" delimiter.
 """
 
+# ── Route Architecture Flow:
+#   [Client Request] ──> [FastAPI Routes] ──> [Background Tasks / src]
+#       • POST /analyze/url -> Process URL download -> src.video_processor
+#       • POST /analyze     -> Run AI Pipeline       -> src.gemini_analyzer
+#       • GET  /stream      -> SSE Progress push     -> Server-Sent Events
+# ──────────────────────────────────────────────────────────────────────────────
 # Developer Note: FastAPI main routing and initialization configurations.
 import uuid
 import asyncio

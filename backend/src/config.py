@@ -65,6 +65,15 @@ FRAME_SAMPLE_RATE: int = int(_env_frame_rate) if _env_frame_rate.isdigit() else 
 _env_whisper = get_env_with_registry_fallback("WHISPER_MODEL", "tiny")
 WHISPER_MODEL: str = _env_whisper if _env_whisper in ("tiny", "base", "small", "medium", "large") else "tiny"
 
-# ── Ensure directories exist ──────────────────────────────────────────────────
+# ── Ensure directories exist & print diagnostics ──────────────────────────────
 for _dir in [TEMP_DIR, DATA_DIR]:
     _dir.mkdir(parents=True, exist_ok=True)
+
+# Secure developer console diagnostics on keys availability
+print("┌── ClipInsight AI Config Diagnostics ────────")
+print(f"│ TEMP_DIR: {TEMP_DIR.resolve()}")
+print(f"│ DATA_DIR: {DATA_DIR.resolve()}")
+print(f"│ GEMINI_API_KEY:   {'[LOADED]' if GEMINI_API_KEY else '[MISSING]'}")
+print(f"│ OPENROUTER_API_KEY:{'[LOADED]' if OPENROUTER_API_KEY else '[MISSING]'}")
+print(f"│ SAKANA_API_KEY:    {'[LOADED]' if SAKANA_API_KEY else '[MISSING]'}")
+print("└──────────────────────────────────────────────")

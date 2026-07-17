@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   },
 };
 
+// ── RootLayout wraps client-side overlays and smooth scrolling contexts globally.
+//   • <SmoothScroll> updates --scroll-y custom CSS variables on documentElement.
+//   • <GlobalOverlays> injects magnetic custom cursor, particles, and sakura petals.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>

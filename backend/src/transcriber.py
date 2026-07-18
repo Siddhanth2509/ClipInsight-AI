@@ -70,7 +70,12 @@ def _get_model():
     if _whisper_model is None:
         # whisper.load_model downloads the model on first run,
         # then caches it in ~/.cache/whisper/
+        print(f"┌── Whisper model load process ────────────────")
+        print(f"│ Model: '{WHISPER_MODEL}'")
+        print(f"│ Action: Loading from disk (or downloading if first run)...")
         _whisper_model = whisper.load_model(WHISPER_MODEL)
+        print(f"│ Status: Loaded successfully!")
+        print(f"└──────────────────────────────────────────────")
     return _whisper_model
 
 

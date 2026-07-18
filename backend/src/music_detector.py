@@ -56,6 +56,10 @@ def detect_music_from_video(video_path, progress_callback=None) -> dict:
         return {"detected": False, "reason": f"Audio extraction error: {e}"}
 
     # ── Step 2: Run Node.js Shazam identification ───────────────────────────
+    # 📚 Shazam Acoustic Fingerprinting:
+    #   The local WASM node engine analyzes the WAV file and extracts a spectrogram.
+    #   It hashes peak frequencies over time (landmarks) into a signature string.
+    #   This signature is sent to Shazam's endpoint to return metadata matches.
     log("Querying Shazam database via WASM engine…")
     try:
         recognize_js = Path(__file__).parent / "recognize.mjs"

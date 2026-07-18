@@ -22,6 +22,12 @@ from backend.src.config import TEMP_DIR, MAX_VIDEO_SIZE_MB
 
 
 def is_valid_url(url: str) -> bool:
+    """
+    Validates the structure of a given URL.
+    - Protocol: Supports http, https, ftp, ftps
+    - Host: Supports domain names, localhost, or IPv4 addresses
+    - Optional: Custom port, path query, and fragment strings
+    """
     pattern = re.compile(
         r'^(?:http|ftp)s?://'
         r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'

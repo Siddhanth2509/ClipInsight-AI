@@ -128,6 +128,9 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
         "writeinfojson":                 False,
         "getcomments":                   False,  # Extracted separately post-download for speed
         "max_comments":                  0,      # Must be 0 when getcomments=False
+        # 📚 Bypass Anti-Scraping blocks:
+        #   Many platforms (like YouTube/TikTok) block requests that don't match typical browser headers.
+        #   Using a modern User-Agent and Accept-Language header avoids immediate bot detection.
         "http_headers": {
             "Accept-Language": "en-US,en;q=0.9",
             "User-Agent": (

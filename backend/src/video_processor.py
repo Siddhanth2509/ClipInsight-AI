@@ -67,8 +67,11 @@ def cookies_contain_domain(cookie_file_path: Path, domain_keyword: str) -> bool:
         if not cookie_file_path.exists():
             return False
         content = cookie_file_path.read_text(encoding="utf-8", errors="ignore")
-        return domain_keyword.lower() in content.lower()
-    except Exception:
+        matched = domain_keyword.lower() in content.lower()
+        print(f"│ Cookies validation: '{cookie_file_path.name}' contains '{domain_keyword}' -> {matched}")
+        return matched
+    except Exception as e:
+        print(f"│ Cookies validation error: {e}")
         return False
 
 

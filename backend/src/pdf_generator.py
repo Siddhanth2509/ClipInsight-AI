@@ -97,6 +97,10 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
     Args:
         result: The full analysis result dict from the AI pipeline.
         theme:  The active UI theme name (e.g. "purple", "ocean-blue").
+    """
+    print(f"┌── PDF Generation Transaction ────────────────")
+    print(f"│ Theme requested: '{theme}'")
+    print(f"│ Target fields: summary, sentiment, segments")
 
     Returns:
         Raw PDF bytes ready to be streamed as a file download.
@@ -479,7 +483,10 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
                        fontName="Helvetica")))
 
     doc.build(story, onFirstPage=draw_bg, onLaterPages=draw_bg)
-    return buf.getvalue()
+    pdf_bytes = buf.getvalue()
+    print(f"│ Output size: {len(pdf_bytes)} bytes")
+    print(f"└──────────────────────────────────────────────")
+    return pdf_bytes
 
 
 def _fallback_text_report(result: dict) -> bytes:

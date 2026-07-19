@@ -104,10 +104,16 @@ def extract_audio(video_path: Path | str, job_id: str) -> Optional[Path]:
         # moviepy approach — cleaner Python API than raw ffmpeg subprocess
         from moviepy import VideoFileClip
 
+        print("┌── Audio Extraction Process ──────────────────")
+        print(f"│ Source: '{video_path.name}'")
+        print(f"│ Target: 'audio.wav' (16kHz mono PCM)")
+
         # Load the video — moviepy reads it into memory-mapped segments
         with VideoFileClip(str(video_path)) as clip:
             if clip.audio is None:
                 # Some videos (screen recordings, etc.) have no audio track
+                print("│ Result: No audio track found in video!")
+                print("└──────────────────────────────────────────────")
                 return None
 
             # write_audiofile exports audio as WAV at 16000 Hz, mono
@@ -120,10 +126,13 @@ def extract_audio(video_path: Path | str, job_id: str) -> Optional[Path]:
                 ffmpeg_params=["-ac", "1"],  # -ac 1 = mono (1 audio channel)
                 logger=None,      # Suppress moviepy's verbose output
             )
+        print("│ Result: Audio extracted successfully!")
+        print("└──────────────────────────────────────────────")
         return audio_path
 
     except Exception as e:
-        print(f"[transcriber] Audio extraction failed: {e}")
+        print(f"│ Error: Audio extraction failed: {e}")
+        print("└──────────────────────────────────────────────")
         return None
 
 

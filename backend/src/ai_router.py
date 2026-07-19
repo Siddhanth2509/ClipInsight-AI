@@ -89,16 +89,25 @@ def get_best_text_client() -> Tuple[Optional[OpenAI], str]:
     """
     client = _get_sakana()
     if client:
+        print("│ Selected Text Client: Sakana (Fugu)")
         return client, "fugu"
 
     client = _get_minimax()
     if client:
+        print("│ Selected Text Client: MiniMax")
         return client, "MiniMax-Text-01"
 
     client = _get_zai()
     if client:
+        print("│ Selected Text Client: Z.ai (GLM)")
         return client, "glm-4-flash"
 
+    client = _get_openrouter()
+    if client:
+        print(f"│ Selected Text Client: OpenRouter ({OPENROUTER_MODEL})")
+        return client, OPENROUTER_MODEL
+
+    print("│ Selected Text Client: None (No API key found)")
     return None, ""
 
 

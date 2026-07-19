@@ -44,11 +44,14 @@ SAMPLE_EVERY_N_SECONDS: int = FRAME_SAMPLE_RATE   # default: 2 seconds
 # Range: 0–255. Lower = more strict (fewer frames). Higher = keep more frames.
 SCENE_CHANGE_THRESHOLD: float = 8.0
 
+# 📚 Downscaling & Grayscale Rationale:
+#   Converting the frame to grayscale discards color variance (saving GPU/CPU channels).
+#   Downscaling to 64x64 collapses high-frequency compression noise (encoding block artifacts)
+#   so only macro visual changes trigger scene detections.
+COMPARE_SIZE = (64, 64)
+
 # Max frames to extract per video (safety cap)
 MAX_FRAMES: int = 40
-
-# Size to downscale for scene-change comparison (keeps it fast)
-COMPARE_SIZE = (64, 64)
 
 
 def extract_frames(

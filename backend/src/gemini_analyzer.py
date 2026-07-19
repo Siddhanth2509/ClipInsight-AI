@@ -66,7 +66,13 @@ _genai_client = None
 def _get_client():
     global _genai_client
     if _genai_client is None:
+        print("┌── Gemini Client Initialization ──────────────")
+        print(f"│ API_KEY: {'[LOADED]' if GEMINI_API_KEY else '[MISSING]'}")
+        if not GEMINI_API_KEY:
+            print("│ WARNING: GEMINI_API_KEY is not set in environment!")
         _genai_client = genai.Client(api_key=GEMINI_API_KEY)
+        print("│ Status: Initialized successfully!")
+        print("└──────────────────────────────────────────────")
     return _genai_client
 
 # Maximum frames to send per API call (cost + latency balance)

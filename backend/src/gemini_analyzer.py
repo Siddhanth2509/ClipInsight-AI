@@ -326,7 +326,7 @@ def analyze_video(
     content_parts.append(genai_types.Part.from_text(text=prompt))
 
     # ── Call the API with model rotation on 429 ──────────────────────────────
-    MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b"]
+    MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest", "gemini-2.5-flash"]
     response = None
     raw_text = ""
     last_err = None

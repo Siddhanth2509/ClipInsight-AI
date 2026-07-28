@@ -193,6 +193,13 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 
 ---
 
+## 🛠️ API Fallbacks & Troubleshooting
+
+- **Gemini Rate Limits / 429 Quota Exhausted**: When Gemini API free tier limits are hit, ClipInsight AI automatically rotates model variants (`gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-1.5-flash-latest`, `gemini-2.5-flash`) and falls back to **OpenRouter** (`openrouter/free`) or dynamic frame-derived analysis to ensure unbroken execution.
+- **Direct Script Execution**: When running test scripts directly from terminal, run with `python -m backend.test_pipeline` or python will automatically pick up project root initialization.
+
+---
+
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.

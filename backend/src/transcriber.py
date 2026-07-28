@@ -252,4 +252,14 @@ def transcribe_video(
         }
 
     log(f"Audio extracted to {audio_path.name}")
-    return transcribe_audio(audio_path, progress_callback=log)
+    try:
+        return transcribe_audio(audio_path, progress_callback=log)
+    except Exception as err:
+        log(f"Whisper transcription error: {err} — continuing with empty transcript")
+        return {
+            "full_text":  "",
+            "word_count": 0,
+            "duration":   0.0,
+            "language":   "unknown",
+            "segments":   [],
+        }

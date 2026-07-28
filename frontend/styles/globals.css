@@ -84,6 +84,7 @@ input, textarea { cursor: none; }
   --r-xs:  4px;  --r-sm: 8px;   --r-md: 12px;
   --r-lg:  16px; --r-xl: 20px;  --r-2xl: 24px;
   --r-pill: 9999px;  /* getlayers nav, buttons */
+  --nav-transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Glow presets */
   --glow-1: rgba(124, 92, 252, 0.30);

@@ -142,6 +142,8 @@ def _get_friendly_error_message(e: Exception) -> str:
         return "This video is private. Please provide valid cookies.txt files for authorization."
     if err_str == "age_restricted":
         return "This video is age-restricted and requires login cookies."
+    if "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+        return "AI API quota limit reached. Falling back to secondary free model or demo analysis."
     return f"Download failed: {err_str}"
 
 

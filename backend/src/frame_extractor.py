@@ -111,14 +111,19 @@ def extract_frames(
     log(f"Video opened: {duration_s:.1f}s @ {fps:.1f}fps ({total_frames} frames total)")
 
     # ── Calculate the frame interval ──────────────────────────────────────────
-    # If FPS=30 and SAMPLE_EVERY_N_SECONDS=2, we check every 60th frame.
-    frame_interval = max(1, int(fps * SAMPLE_EVERY_N_SECONDS))
+    # For very short videos (<10s), adjust sample rate to ensure at least 4-6 candidate frames.
+    sample_rate = SAMPLE_EVERY_N_SECONDS
+    if duration_s > 0 and duration_s < 10.0:
+        sample_rate = max(1.0, duration_s / 5.0)
+
+    # If FPS=30 and sample_rate=2, we check every 60th frame.
+    frame_interval = max(1, int(fps * sample_rate))
 
     extracted = []              # Output list
     prev_gray = None            # Previous accepted frame (for scene comparison)
     frame_idx = 0               # Current frame position
 
-    log(f"Sampling every {SAMPLE_EVERY_N_SECONDS}s (every {frame_interval} frames)")
+    log(f"Sampling every {sample_rate:.1f}s (every {frame_interval} frames)")
 
     # ── Main extraction loop ──────────────────────────────────────────────────
     while True:

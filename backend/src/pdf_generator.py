@@ -97,14 +97,13 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
     Args:
         result: The full analysis result dict from the AI pipeline.
         theme:  The active UI theme name (e.g. "purple", "ocean-blue").
-    """
-    print(f"┌── PDF Generation Transaction ────────────────")
-    print(f"│ Theme requested: '{theme}'")
-    print(f"│ Target fields: summary, sentiment, segments")
 
     Returns:
         Raw PDF bytes ready to be streamed as a file download.
     """
+    print(f"┌── PDF Generation Transaction ────────────────")
+    print(f"│ Theme requested: '{theme}'")
+    print(f"│ Target fields: summary, sentiment, segments")
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -490,7 +489,6 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
 
 
 def _fallback_text_report(result: dict) -> bytes:
-    """Minimal fallback if reportlab is not available."""
     lines = [
         "ClipInsight AI Analysis Report",
         "=" * 40,

@@ -88,6 +88,8 @@ app = FastAPI(
 #   Different ports = different "origin" = browser blocks the request.
 #   CORS middleware adds response headers telling the browser: "It's OK."
 #   This allows the Next.js single-page application to safely communicate with our Python server.
+from fastapi.middleware.gzip import GZipMiddleware
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -95,6 +97,7 @@ app.add_middleware(
     allow_methods=["*"],    # Allow GET, POST, PUT, DELETE, etc.
     allow_headers=["*"],    # Allow all request headers
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── In-memory stores ────────────────────────────────────────────────
 jibs: dict[str, dict] = {}  # Avoid collision with 'jobs' type hint

@@ -52,6 +52,41 @@ def detect_platform(url: str) -> str:
     return "generic"
 
 
+def get_video_aspect_ratio(video_path: Path | str) -> dict:
+    """
+    Reads video resolution and computes aspect ratio metadata.
+    Returns: {"width": int, "height": int, "aspect_ratio": str, "is_vertical": bool}
+    """
+    import cv2
+    path = str(video_path)
+    cap = cv2.VideoCapture(path)
+    if not cap.isOpened():
+        return {"width": 0, "height": 0, "aspect_ratio": "Unknown", "is_vertical": False}
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    cap.release()
+
+    if width <= 0 or height <= 0:
+        return {"width": 0, "height": 0, "aspect_ratio": "Unknown", "is_vertical": False}
+
+    is_vertical = height > width
+    ratio_str = f"{width}:{height}"
+    if abs((width / height) - (9 / 16)) < 0.05:
+        ratio_str = "9:16 (Vertical Reel/Short)"
+    elif abs((width / height) - (16 / 9)) < 0.05:
+        ratio_str = "16:9 (Widescreen)"
+    elif abs((width / height) - 1.0) < 0.05:
+        ratio_str = "1:1 (Square)"
+
+    return {
+        "width": width,
+        "height": height,
+        "aspect_ratio": ratio_str,
+        "is_vertical": is_vertical
+    }
+
+
 def save_uploaded_file(file_bytes: bytes, filename: str, job_id: str) -> Path:
     """Saves an uploaded video file to a job-specific temp folder."""
     job_dir = TEMP_DIR / job_id

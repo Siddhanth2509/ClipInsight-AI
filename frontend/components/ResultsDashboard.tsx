@@ -48,16 +48,16 @@ function ConfidenceRadar({ scores }: { scores: Record<string, number> }) {
       {/* Data fill */}
       <polygon
         points={poly(dataPoints)}
-        fill="rgba(124,92,252,0.18)"
+        fill="rgba(124,92,252,0.22)"
         stroke="var(--purple, #7C5CFC)"
-        strokeWidth="1.5"
+        strokeWidth="2"
         strokeLinejoin="round"
       />
       {/* Data points */}
       {dataPoints.map(([x, y], i) => (
         <circle key={i} cx={x} cy={y} r={4.5}
           fill="var(--purple, #7C5CFC)"
-          stroke="rgba(255,255,255,0.3)"
+          stroke="rgba(255,255,255,0.6)"
           strokeWidth="1" />
       ))}
       {/* Value labels */}

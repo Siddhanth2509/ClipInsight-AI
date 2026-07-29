@@ -201,10 +201,14 @@ def _load_frame_as_base64(frame_path: Path) -> Optional[dict]:
 
 def _build_prompt(transcript: str, frame_count: int, duration: float, metadata: Optional[dict] = None) -> str:
     """
-    Build the structured prompt that instructs Gemini exactly what to return.
+    Build the structured prompt that instructs Gemini/OpenRouter exactly what to return.
     """
+    clean_transcript = transcript.strip() if transcript else ""
+    if len(clean_transcript) > 1000:
+        clean_transcript = clean_transcript[:1000] + "… [truncated]"
+
     transcript_section = (
-        f"TRANSCRIPT:\n{transcript}" if transcript
+        f"TRANSCRIPT:\n{clean_transcript}" if clean_transcript
         else "TRANSCRIPT: [No audio track detected in this video]"
     )
 

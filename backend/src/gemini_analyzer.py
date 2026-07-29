@@ -288,122 +288,94 @@ def analyze_video(
         if progress_callback:
             progress_callback(msg)
 
-    if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
-        log("No Gemini API key set — returning demo analysis")
-        return _demo_analysis(frames, transcript_data, duration_seconds)
+    from backend.src.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_MODEL
 
-    # ── Initialize the client ─────────────────────────────────────────────────
-    # 📚 Model selection:
-    #   "gemini-2.0-flash"       — fastest, cheapest, excellent for this task
-    #   "gemini-1.5-pro"         — more powerful, higher cost
-    #   "gemini-2.5-pro-preview" — most capable, highest cost
-    client = _get_client()
-
-    # ── Build the message content ─────────────────────────────────────────────
-    # Gemini's API accepts a list of "parts" — a mix of text and images.
-    # The model processes ALL parts together in a single forward pass.
-    content_parts = []
-
-    # Add frames (capped at MAX_FRAMES_TO_SEND)
     frames_to_send = frames[:MAX_FRAMES_TO_SEND]
-    log(f"Sending {len(frames_to_send)} frames to Gemini…")
-
-    for frame in frames_to_send:
-        image_data = _load_frame_as_base64(Path(frame["path"]))
-        if image_data:
-            # 📚 Each image is added as a Part with inline base64 data.
-            #    Gemini tokenizes this into ~258 image tokens internally.
-            content_parts.append(
-                genai_types.Part.from_bytes(
-                    data=base64.b64decode(image_data["data"]),
-                    mime_type="image/jpeg",
-                )
-            )
-
-    # Add the text prompt (comes AFTER images — models attend to it last)
     transcript_text = transcript_data.get("full_text", "")
     prompt = _build_prompt(transcript_text, len(frames_to_send), duration_seconds, metadata=metadata)
-    content_parts.append(genai_types.Part.from_text(text=prompt))
-
-    # ── Call the API with model rotation on 429 ──────────────────────────────
-    MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest", "gemini-2.5-flash"]
-    response = None
     raw_text = ""
-    last_err = None
 
-    for model_name in MODELS_TO_TRY:
-        log(f"Calling {model_name}...")
+    # ── Primary Engine: OpenRouter Vision API ───────────────────────────
+    if OPENROUTER_API_KEY and not OPENROUTER_API_KEY.startswith("your_") and not OPENROUTER_API_KEY.startswith("PASTE_"):
+        log(f"Initiating primary video analysis via OpenRouter ({OPENROUTER_MODEL})…")
         try:
-            res = client.models.generate_content(
-                model=model_name,
-                contents=content_parts,
-                config=genai_types.GenerateContentConfig(
-                    temperature=0.3,
-                    response_mime_type="application/json",
-                    response_schema=VideoAnalysis,
-                ),
-            )
-            raw_text = res.text.strip()
-            response = res
-            log(f"Successfully generated via {model_name}")
-            break
-        except Exception as e:
-            last_err = e
-            log(f"Gemini API error on model {model_name}: {e}. Trying next fallback...")
-            continue
+            messages_content = []
+            for f in frames_to_send:
+                img_b64 = _load_frame_as_base64(Path(f["path"]))
+                if img_b64:
+                    messages_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{img_b64['data']}"
+                        }
+                    })
+            messages_content.append({
+                "type": "text",
+                "text": prompt
+            })
 
-    if response is None:
-        log(f"All Gemini models failed or quota exceeded: {last_err}")
-        
-        # ── OpenRouter Multimodal Fallback (DIS / Free Model) ──
-        from backend.src.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, OPENROUTER_MODEL
-        if OPENROUTER_API_KEY and not OPENROUTER_API_KEY.startswith("your_") and not OPENROUTER_API_KEY.startswith("PASTE_"):
-            log("Attempting visual analysis fallback via OpenRouter...")
+            from openai import OpenAI
+            or_client = OpenAI(
+                api_key=OPENROUTER_API_KEY,
+                base_url=OPENROUTER_BASE_URL,
+                default_headers={
+                    "HTTP-Referer": "https://github.com/Siddhanth2509/ClipInsight-AI",
+                    "X-Title": "ClipInsight AI"
+                }
+            )
+
+            or_response = or_client.chat.completions.create(
+                model=OPENROUTER_MODEL,
+                messages=[{"role": "user", "content": messages_content}],
+                temperature=0.3,
+                response_format={"type": "json_object"}
+            )
+            raw_text = or_response.choices[0].message.content.strip()
+            log("Successfully completed video analysis via OpenRouter!")
+        except Exception as or_err:
+            log(f"OpenRouter primary analysis error: {or_err} — falling back to Gemini API...")
+            raw_text = ""
+
+    # ── Fallback Engine: Gemini Vision API ──────────────────────────────
+    if not raw_text and GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
+        client = _get_client()
+        content_parts = []
+        log(f"Sending {len(frames_to_send)} frames to Gemini…")
+
+        for frame in frames_to_send:
+            image_data = _load_frame_as_base64(Path(frame["path"]))
+            if image_data:
+                content_parts.append(
+                    genai_types.Part.from_bytes(
+                        data=base64.b64decode(image_data["data"]),
+                        mime_type="image/jpeg",
+                    )
+                )
+        content_parts.append(genai_types.Part.from_text(text=prompt))
+
+        MODELS_TO_TRY = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest", "gemini-2.5-flash"]
+        for model_name in MODELS_TO_TRY:
+            log(f"Calling Gemini model {model_name}...")
             try:
-                messages_content = []
-                # Add base64 frames
-                for f in frames_to_send:
-                    img_b64 = _load_frame_as_base64(Path(f["path"]))
-                    if img_b64:
-                        messages_content.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{img_b64['data']}"
-                            }
-                        })
-                # Add structured prompt
-                messages_content.append({
-                    "type": "text",
-                    "text": prompt
-                })
-                
-                from openai import OpenAI
-                or_client = OpenAI(
-                    api_key=OPENROUTER_API_KEY,
-                    base_url=OPENROUTER_BASE_URL,
-                    default_headers={
-                        "HTTP-Referer": "https://github.com/Siddhanth2509/ClipInsight-AI",
-                        "X-Title": "ClipInsight AI"
-                    }
+                res = client.models.generate_content(
+                    model=model_name,
+                    contents=content_parts,
+                    config=genai_types.GenerateContentConfig(
+                        temperature=0.3,
+                        response_mime_type="application/json",
+                        response_schema=VideoAnalysis,
+                    ),
                 )
-                
-                log(f"Calling OpenRouter model {OPENROUTER_MODEL}…")
-                or_response = or_client.chat.completions.create(
-                    model=OPENROUTER_MODEL,
-                    messages=[{"role": "user", "content": messages_content}],
-                    temperature=0.3,
-                    response_format={"type": "json_object"}
-                )
-                
-                raw_text = or_response.choices[0].message.content.strip()
-                log("Successfully generated visual analysis via OpenRouter!")
-            except Exception as or_err:
-                log(f"OpenRouter visual fallback failed: {or_err} — proceeding to demo analysis")
-                return _demo_analysis(frames, transcript_data, duration_seconds)
-        else:
-            return _demo_analysis(frames, transcript_data, duration_seconds)
-    else:
-        log("Gemini responded — parsing JSON…")
+                raw_text = res.text.strip()
+                log(f"Successfully generated via Gemini model {model_name}")
+                break
+            except Exception as e:
+                log(f"Gemini API error on model {model_name}: {e}. Trying next fallback...")
+                continue
+
+    if not raw_text:
+        log("No API provider succeeded — falling back to dynamic demo analysis")
+        return _demo_analysis(frames, transcript_data, duration_seconds)
 
     # ── Parse and validate the JSON response ─────────────────────────────────
     try:

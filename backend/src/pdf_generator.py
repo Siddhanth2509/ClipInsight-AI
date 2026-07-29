@@ -240,8 +240,8 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
         alignment=TA_CENTER, spaceAfter=12, leading=42
     )
     cover_subtitle_style = ParagraphStyle(
-        "CoverSubtitle", fontSize=16, textColor=c_muted, fontName="Helvetica",
-        alignment=TA_CENTER, spaceAfter=40, leading=20
+        "CoverSubtitle", fontSize=15, textColor=c_muted, fontName="Helvetica",
+        alignment=TA_CENTER, spaceAfter=36, leading=20
     )
     cover_meta_label = ParagraphStyle(
         "CoverMetaLabel", fontSize=9, textColor=c_muted, fontName="Helvetica-Bold",

@@ -131,8 +131,12 @@ def _execute_completion(
         if progress_callback:
             progress_callback(msg)
 
-    # 1. Gather all candidates that have keys configured
+    # 1. Gather all candidates that have keys configured (OpenRouter prioritized)
     candidates = []
+
+    openrouter_client = _get_openrouter()
+    if openrouter_client:
+        candidates.append((openrouter_client, OPENROUTER_MODEL, "OpenRouter"))
 
     sakana_client = _get_sakana()
     if sakana_client:
@@ -145,10 +149,6 @@ def _execute_completion(
     zai_client = _get_zai()
     if zai_client:
         candidates.append((zai_client, "glm-4-flash", "Z.ai GLM"))
-
-    openrouter_client = _get_openrouter()
-    if openrouter_client:
-        candidates.append((openrouter_client, OPENROUTER_MODEL, "OpenRouter"))
 
     if not candidates:
         log("No text AI providers are configured (Sakana, MiniMax, or Z.ai keys missing)")

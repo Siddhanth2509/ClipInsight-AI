@@ -40,18 +40,18 @@ Paste any **YouTube Short** or **Instagram Reel** URL → ClipInsight AI runs a 
 │   Three.js Sakura BG  │  Progress Tracker  │  Dashboard │
 └──────────────────────────────┬──────────────────────────┘
                                │ HTTP / SSE
-┌──────────────────────────────▼──────────────────────────┐
+┌─────────────────────────────────────────────────────────┐
 │                    FastAPI Backend                       │
 │                                                          │
 │  URL/Upload → yt-dlp Download                           │
 │       ↓                                                  │
-│  OpenCV Frame Extraction (40 frames)                    │
+│  OpenCV Frame Extraction (Adaptive 3s sampling)          │
 │       ↓                                                  │
 │  Whisper Transcription (local CPU)                      │
 │       ↓                                                  │
-│  Gemini Multimodal Analysis (frames + transcript)       │
+│  OpenRouter Primary Vision Engine (OpenRouter / Gemini) │
 │       ↓                                                  │
-│  Shazam Music Detection (FFT fingerprinting)            │
+│  Shazam Dual-Offset Music Detection (3s + 0s offsets)    │
 │       ↓                                                  │
 │  Structured JSON Result (Pydantic validated)            │
 └─────────────────────────────────────────────────────────┘

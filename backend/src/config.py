@@ -69,11 +69,15 @@ WHISPER_MODEL: str = _env_whisper if _env_whisper in ("tiny", "base", "small", "
 for _dir in [TEMP_DIR, DATA_DIR]:
     _dir.mkdir(parents=True, exist_ok=True)
 
+# Preferred vision provider: 'openrouter' or 'gemini'
+PRIMARY_VISION_PROVIDER: str = get_env_with_registry_fallback("PRIMARY_VISION_PROVIDER", "openrouter")
+
 # Secure developer console diagnostics on keys availability
 print("┌── ClipInsight AI Config Diagnostics ────────")
 print(f"│ TEMP_DIR: {TEMP_DIR.resolve()}")
 print(f"│ DATA_DIR: {DATA_DIR.resolve()}")
-print(f"│ GEMINI_API_KEY:   {'[LOADED]' if GEMINI_API_KEY else '[MISSING]'}")
+print(f"│ PRIMARY VISION:    [{PRIMARY_VISION_PROVIDER.upper()}]")
 print(f"│ OPENROUTER_API_KEY:{'[LOADED]' if OPENROUTER_API_KEY else '[MISSING]'}")
+print(f"│ GEMINI_API_KEY:   {'[LOADED]' if GEMINI_API_KEY else '[MISSING]'}")
 print(f"│ SAKANA_API_KEY:    {'[LOADED]' if SAKANA_API_KEY else '[MISSING]'}")
 print("└──────────────────────────────────────────────")

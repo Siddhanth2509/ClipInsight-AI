@@ -9,6 +9,7 @@ from backend.src.video_processor import download_video
 from backend.src.frame_extractor import extract_frames
 from backend.src.transcriber import transcribe_video
 from backend.src.gemini_analyzer import analyze_video
+from backend.src.music_detector import detect_music_from_video
 
 def main():
     print("=== Pipeline Diagnostic Test ===")
@@ -67,6 +68,10 @@ def main():
         ]
     }
     analysis = analyze_video(frames, transcript_data, transcript_data.get("duration", 0.0), progress_callback=print, metadata=mock_metadata)
+    print("\n--- Running Music Detection Diagnostic ---")
+    music_res = detect_music_from_video(video_path, progress_callback=print)
+    print("Music Detection Result:", music_res)
+
     print("\nAnalysis Result:")
     import json
     print(json.dumps(analysis, indent=2))

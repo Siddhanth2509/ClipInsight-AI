@@ -213,15 +213,17 @@ def transcribe_audio(
     ]
 
     word_count = len(full_text.split()) if full_text else 0
+    words_per_sec = round(word_count / max(duration, 1.0), 2)
 
-    log(f"Transcription complete: {word_count} words, {len(clean_segments)} segments")
+    log(f"Transcription complete: {word_count} words ({words_per_sec} words/s), {len(clean_segments)} segments")
 
     return {
-        "full_text":  full_text,
-        "word_count": word_count,
-        "duration":   round(duration, 2),
-        "language":   lang,
-        "segments":   clean_segments,
+        "full_text":     full_text,
+        "word_count":    word_count,
+        "words_per_sec": words_per_sec,
+        "duration":      round(duration, 2),
+        "language":      lang,
+        "segments":      clean_segments,
     }
 
 

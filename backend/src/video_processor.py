@@ -327,11 +327,15 @@ def download_video(url: str, job_id: str, progress_callback=None) -> Path:
                 pass
             raise RuntimeError("video_too_long")
 
-        # ── Save basic metadata to info.json (no comments — fetched separately) ─
+        # ── Save detailed metadata to info.json (comments fetched separately) ─
         metadata = {
             "title":       info.get("title", ""),
             "description": info.get("description", ""),
-            "uploader":    info.get("uploader", ""),
+            "uploader":    info.get("uploader", info.get("channel", "")),
+            "channel":     info.get("channel", info.get("uploader", "")),
+            "view_count":  info.get("view_count", 0),
+            "like_count":  info.get("like_count", 0),
+            "upload_date": info.get("upload_date", ""),
             "thumbnail":   info.get("thumbnail", ""),
             "comments":    []   # Populated later by fetch_comments()
         }

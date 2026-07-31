@@ -337,7 +337,7 @@ def analyze_video(
             raw_text = or_response.choices[0].message.content.strip()
             log("Successfully completed video analysis via OpenRouter!")
         except Exception as or_err:
-            log(f"OpenRouter primary analysis error: {or_err} — falling back to Gemini API...")
+            log(f"OpenRouter vision analysis unavailable ({or_err}) — switching to Gemini fallback engine...")
             raw_text = ""
 
     # ── Fallback Engine: Gemini Vision API ──────────────────────────────

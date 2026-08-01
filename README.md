@@ -183,13 +183,13 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 
 ## 🗺️ Roadmap
 
-- [x] Phase 1 — Core pipeline (frames + transcription + Gemini)
+- [x] Phase 1 — Core pipeline (frames + transcription + Gemini/OpenRouter)
 - [x] Phase 2 — Music detection + download system
 - [x] Phase 3 — PDF export + share links + thumbnail preview
 - [x] Phase 4 — Batch comparison + history panel
 - [x] Phase 5 — User accounts + persistent history
-- [ ] Phase 6 — TikTok deep integration + browser extension
-- [ ] Phase 7 — Monetization (credits + API)
+- [x] Phase 6 — TikTok deep integration + browser extension
+- [x] Phase 7 — Monetization (credits + API key system)
 
 ---
 

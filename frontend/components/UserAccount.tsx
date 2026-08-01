@@ -539,6 +539,37 @@ export default function UserAccount({ isOpen, onClose, onOpenAdmin, onOpenPaymen
             <SettingsPanel user={user} onSaved={() => setUser(getCurrentUser())} />
           )}
 
+          {/* ── API KEYS TAB ── */}
+          {tab === ('api-keys' as any) && (
+            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: 18 }}>
+              <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#fff', marginBottom: 4 }}>
+                🔑 Developer API Keys
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'rgba(255,255,255,0.4)', marginBottom: 16 }}>
+                Generate API keys to integrate ClipInsight AI analysis into your own applications.
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`${BACKEND}/api/v1/keys/generate`, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: 'Default App Key', tier: 'pro' }),
+                    });
+                    const d = await res.json();
+                    alert(`API Key Generated: ${d.api_key}\nQuota: ${d.credits} credits`);
+                  } catch (e: any) { alert('Failed to generate key'); }
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, var(--purple, #7C5CFC), var(--cyan, #3DD9FF))',
+                  border: 'none', color: '#fff', fontWeight: 700, fontSize: '0.78rem',
+                  padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                }}
+              >
+                + Generate New API Key
+              </button>
+            </div>
+          )}
+
           {/* ── Sign Out (always visible at bottom) ── */}
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, display: 'flex', gap: 8 }}>
             <button

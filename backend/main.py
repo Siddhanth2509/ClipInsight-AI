@@ -706,6 +706,42 @@ async def get_shared_result(token: str):
         raise HTTPException(status_code=404, detail="Share link not found or expired.")
     result = jobs.get(job_id, {}).get("result")
     if not result:
-        raise HTTPException(status_code=404, detail="Result not found.")
-    return JSONResponse(content=result)
+        raise HTTPException(status_code=404, detail="Result data missing.")
+    return result
+
+
+# ── Developer API Keys & Monetization ──────────────────────────────────────────
+api_keys_db: dict[str, dict] = {}
+
+
+class APIKeyRequest(BaseModel):
+    name: str = "Developer Key"
+    tier: str = "pro"
+
+
+@app.post("/api/v1/keys/generate")
+async def generate_developer_api_key(req: APIKeyRequest):
+    """Generate a new developer API key with quota credits."""
+    raw_key = f"clip_{uuid.uuid4().hex}"
+    api_keys_db[raw_key] = {
+        "name": req.name,
+        "tier": req.tier,
+        "credits": 500 if req.tier == "pro" else 50,
+        "created_at": time.time(),
+        "requests_total": 0,
+    }
+    return {
+        "api_key": raw_key,
+        "name": req.name,
+        "tier": req.tier,
+        "credits": api_keys_db[raw_key]["credits"],
+    }
+
+
+@app.get("/api/v1/keys/usage")
+async def check_api_key_usage(api_key: str = Query(...)):
+    """Check remaining credits and request stats for a developer API key."""
+    if api_key not in api_keys_db:
+        raise HTTPException(status_code=401, detail="Invalid or expired API key.")
+    return api_keys_db[api_key]
 

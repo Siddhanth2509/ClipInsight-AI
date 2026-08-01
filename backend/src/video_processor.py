@@ -41,15 +41,21 @@ def is_valid_url(url: str) -> bool:
 def detect_platform(url: str) -> str:
     """Detect the video platform from a URL."""
     u = url.lower()
-    if "instagram.com" in u:
+    if "instagram.com" in u or "instagr.am" in u:
         return "instagram"
-    if "tiktok.com" in u:
+    if "tiktok.com" in u or "vt.tiktok.com" in u or "vm.tiktok.com" in u:
         return "tiktok"
     if "youtube.com" in u or "youtu.be" in u:
         return "youtube"
     if "twitter.com" in u or "x.com" in u:
         return "twitter"
     return "generic"
+
+
+def parse_tiktok_video_id(url: str) -> str:
+    """Extract TikTok video numeric ID from standard or short URLs."""
+    match = re.search(r"(?:video/|v/|embed/|/photo/)(\d{15,22})", url)
+    return match.group(1) if match else ""
 
 
 def get_video_aspect_ratio(video_path: Path | str) -> dict:

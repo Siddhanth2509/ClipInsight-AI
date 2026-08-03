@@ -72,6 +72,11 @@ def main():
     music_res = detect_music_from_video(video_path, progress_callback=print)
     print("Music Detection Result:", music_res)
 
+    print("\n--- Running API Key Generation Diagnostic ---")
+    import uuid
+    test_key = f"clip_{uuid.uuid4().hex}"
+    print(f"Generated test API key: {test_key[:12]}… (tier: pro)")
+
     print("\nAnalysis Result:")
     import json
     print(json.dumps(analysis, indent=2))

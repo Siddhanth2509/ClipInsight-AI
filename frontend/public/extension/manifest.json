@@ -5,7 +5,8 @@
   "description": "Analyze Instagram Reels, TikToks, and YouTube Shorts with 1 click using ClipInsight AI.",
   "permissions": ["activeTab", "scripting"],
   "action": {
-    "default_title": "Analyze Video in ClipInsight AI"
+    "default_title": "Analyze Video in ClipInsight AI",
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {

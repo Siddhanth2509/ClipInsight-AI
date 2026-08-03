@@ -128,6 +128,18 @@ def _log(job_id: str, msg: str):
         print(f"[{job_id[:8]}] {msg}")  # Also log to console for debugging
 
 
+def _cleanup_old_jobs(max_age_hours: int = 24):
+    """Purge in-memory jobs older than max_age_hours to manage memory."""
+    now = time.time()
+    cutoff = now - (max_age_hours * 3600)
+    stale_ids = [
+        jid for jid, jdata in jobs.items()
+        if jdata.get("created_at", 0) < cutoff
+    ]
+    for jid in stale_ids:
+        jobs.pop(jid, None)
+
+
 def _get_friendly_error_message(e: Exception) -> str:
     err_str = str(e)
     if err_str == "login_required":

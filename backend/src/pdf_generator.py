@@ -203,8 +203,7 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
             
             # Faint watermark or footer text at the bottom
             canvas.setFont("Helvetica", 7)
-            canvas.setFillColor(c_muted)
-            canvas.drawString(2.5 * cm, 1.2 * cm, "CLIPINSIGHT AI REPORT")
+            canvas.drawString(2.5 * cm, 1.2 * cm, "CLIPINSIGHT AI REPORT · MULTIMODAL AI PIPELINE")
             canvas.drawRightString(A4[0] - 2.5 * cm, 1.2 * cm, f"PAGE {canvas._pageNumber}")
             
         canvas.restoreState()

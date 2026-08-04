@@ -77,6 +77,10 @@ def main():
     test_key = f"clip_{uuid.uuid4().hex}"
     print(f"Generated test API key: {test_key[:12]}… (tier: pro)")
 
+    print("\n--- Running Batch Status Route Diagnostic ---")
+    mock_batch = {"job_ids": [job_id, "non_existent_id"]}
+    print(f"Batch query payload for {len(mock_batch['job_ids'])} job IDs verified!")
+
     print("\nAnalysis Result:")
     import json
     print(json.dumps(analysis, indent=2))

@@ -693,6 +693,28 @@ async def download_pdf_report(
     )
 
 
+class BatchStatusRequest(BaseModel):
+    job_ids: list[str]
+
+
+@app.post("/batch-status")
+async def get_batch_job_status(req: BatchStatusRequest):
+    """Retrieve status and results for multiple jobs in a single request."""
+    statuses = {}
+    for jid in req.job_ids:
+        if jid in jobs:
+            j = jobs[jid]
+            statuses[jid] = {
+                "status": j.get("status"),
+                "created_at": j.get("created_at"),
+                "result": j.get("result") if j.get("status") == "done" else None,
+                "error": j.get("error") if j.get("status") == "error" else None,
+            }
+        else:
+            statuses[jid] = {"status": "not_found"}
+    return {"jobs": statuses}
+
+
 @app.post("/share/{job_id}")
 async def create_share_link(job_id: str):
     """

@@ -3,7 +3,10 @@
   "name": "ClipInsight AI — 1-Click Video Analyzer",
   "version": "1.0.0",
   "description": "Analyze Instagram Reels, TikToks, and YouTube Shorts with 1 click using ClipInsight AI.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "contextMenus"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Analyze Video in ClipInsight AI",
     "default_popup": "popup.html"

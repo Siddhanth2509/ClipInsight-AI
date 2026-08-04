@@ -209,7 +209,7 @@ def transcribe_audio(
             "start": round(seg["start"], 2),
             "end":   round(seg["end"], 2),
         }
-        for seg in segments
+        for seg in segments if seg.get("text") and seg["text"].strip()
     ]
 
     word_count = len(full_text.split()) if full_text else 0

@@ -228,7 +228,7 @@ def _build_prompt(transcript: str, frame_count: int, duration: float, metadata: 
 
     return f"""You are an expert social media video analyst specializing in short-form content
 (Instagram Reels, YouTube Shorts, TikTok). You have access to {frame_count} sampled frames
-from a {duration:.0f}-second video, plus its transcript.
+from a {duration:.0f}-second video, plus its transcript (which may be in English, Hindi/Hinglish, Spanish, etc.).
 
 {metadata_section}
 

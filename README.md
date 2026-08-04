@@ -198,6 +198,8 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 - **Primary Vision Engine Configuration**: Set `PRIMARY_VISION_PROVIDER=openrouter` in `.env` to route video analysis to OpenRouter (`openrouter/free`). Gemini API serves as automatic fallback.
 - **Gemini Rate Limits / 429 Quota Exhausted**: When Gemini API free tier limits are hit, ClipInsight AI automatically rotates model variants (`gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-1.5-flash-latest`, `gemini-2.5-flash`) and falls back to **OpenRouter** (`openrouter/free`) or dynamic frame-derived analysis to ensure unbroken execution.
 - **Health Check Endpoint**: Access `GET http://localhost:8000/health` to inspect live provider status (`primary_vision_provider`, `openrouter_api_set`, `gemini_api_set`).
+- **Batch Status Endpoint**: Query multiple video analysis jobs in a single request via `POST /batch-status` with payload `{"job_ids": ["id1", "id2"]}`.
+- **Chrome Browser Extension**: Load unpacked extension from `frontend/public/extension` in Chrome Developer Mode to enable 1-click video analysis and right-click context menu options.
 - **Direct Script Execution**: When running test scripts directly from terminal, run with `python -m backend.test_pipeline` or python will automatically pick up project root initialization.
 
 ---

@@ -136,6 +136,17 @@ def extract_audio(video_path: Path | str, job_id: str) -> Optional[Path]:
         return None
 
 
+def _split_audio_into_chunks(duration_sec: float, chunk_length_sec: float = 30.0) -> list[tuple[float, float]]:
+    """Compute (start, end) interval windows for audio chunk parallel processing."""
+    chunks = []
+    current = 0.0
+    while current < duration_sec:
+        end = min(duration_sec, current + chunk_length_sec)
+        chunks.append((round(current, 2), round(end, 2)))
+        current += chunk_length_sec
+    return chunks
+
+
 def transcribe_audio(
     audio_path: Path | str,
     language: str = "en",

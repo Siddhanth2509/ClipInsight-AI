@@ -9,6 +9,15 @@ import os
 import json
 from pathlib import Path
 
+def _compute_spectral_centroid(magnitudes: list[float], frequencies: list[float]) -> float:
+    """Compute the spectral centroid (center of mass of spectrum) for pitch analysis."""
+    total_mag = sum(magnitudes)
+    if total_mag == 0.0:
+        return 0.0
+    weighted_sum = sum(m * f for m, f in zip(magnitudes, frequencies))
+    return weighted_sum / total_mag
+
+
 def detect_music_from_video(video_path, progress_callback=None) -> dict:
     """
     Identify background music in a video using the WebAssembly-based Shazam runner.

@@ -99,6 +99,15 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = f"{process_time:.4f}s"
+    return response
+
 # ── In-memory stores ────────────────────────────────────────────────
 jibs: dict[str, dict] = {}  # Avoid collision with 'jobs' type hint
 jobs: dict[str, dict] = {}

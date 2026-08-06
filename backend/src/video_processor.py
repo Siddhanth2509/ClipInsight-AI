@@ -58,6 +58,16 @@ def parse_tiktok_video_id(url: str) -> str:
     return match.group(1) if match else ""
 
 
+def detect_frame_blur(frame_path: Path | str, threshold: float = 100.0) -> bool:
+    """Compute Laplacian variance of a image frame to detect motion blur."""
+    import cv2
+    img = cv2.imread(str(frame_path), cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return True
+    variance = cv2.Laplacian(img, cv2.CV_64F).var()
+    return variance < threshold
+
+
 def get_video_aspect_ratio(video_path: Path | str) -> dict:
     """
     Reads video resolution and computes aspect ratio metadata.

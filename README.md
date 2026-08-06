@@ -206,6 +206,15 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 
 ---
 
+## 🔬 Advanced Technical Architecture
+
+- **Exponential Backoff & Full Jitter**: Network retry handler with randomized full jitter to prevent thundering herd problems on external API rate limits (`@retry_with_exponential_backoff`).
+- **FFT Spectral Centroid Analysis**: Acoustic feature extraction computing spectral mass centers for pitch discrimination in background music identification.
+- **Vector Cosine Similarity**: High-dimensional feature vector similarity matrix calculation ($\frac{A \cdot B}{\|A\| \|B\|}$) for visual topic clustering.
+- **Cryptographic Key Authentication**: HMAC-SHA256 signature token verification for developer API key validation.
+
+---
+
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.

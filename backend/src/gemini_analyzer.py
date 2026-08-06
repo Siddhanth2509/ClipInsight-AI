@@ -430,6 +430,18 @@ def _demo_analysis(frames: list, transcript_data: dict, duration: float) -> dict
     seed_val = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
     rng = random.Random(seed_val)
 
+def _compute_cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
+    """Compute mathematical cosine similarity between two feature vectors."""
+    if len(vec1) != len(vec2) or not vec1:
+        return 0.0
+    dot_prod = sum(a * b for a, b in zip(vec1, vec2))
+    norm_a = sum(a * a for a in vec1) ** 0.5
+    norm_b = sum(b * b for b in vec2) ** 0.5
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot_prod / (norm_a * norm_b)
+
+
     # Compute score components from real data
     # 1. Word density (words/sec) — higher density = more engaging
     words_per_sec  = word_count / max(duration, 1)

@@ -1924,3 +1924,10 @@ html[data-theme="ice-white"] .gradient-text {
   box-shadow: 0 0 20px rgba(124, 92, 252, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
+.scale-hover {
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.scale-hover:hover {
+  transform: scale(1.02);
+}
+

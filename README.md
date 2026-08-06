@@ -200,6 +200,8 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 - **Health Check Endpoint**: Access `GET http://localhost:8000/health` to inspect live provider status (`primary_vision_provider`, `openrouter_api_set`, `gemini_api_set`).
 - **Batch Status Endpoint**: Query multiple video analysis jobs in a single request via `POST /batch-status` with payload `{"job_ids": ["id1", "id2"]}`.
 - **Chrome Browser Extension**: Load unpacked extension from `frontend/public/extension` in Chrome Developer Mode to enable 1-click video analysis and right-click context menu options.
+- **Frame Quality & Blur Filtering**: OpenCV Laplacian variance analysis automatically detects motion blur in sampled video frames.
+- **Server Response Middleware**: FastAPI middleware appends `X-Process-Time` execution latency headers to all API responses.
 - **Direct Script Execution**: When running test scripts directly from terminal, run with `python -m backend.test_pipeline` or python will automatically pick up project root initialization.
 
 ---

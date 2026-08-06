@@ -79,6 +79,15 @@ def _get_client():
 MAX_FRAMES_TO_SEND = 10  # Reduced for speed: 10 frames is enough for short-form content
 
 
+def _clean_json_str(text: str) -> str:
+    """Strip markdown codeblock wrappers (```json ... ```) from raw text."""
+    s = text.strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:json)?\s*", "", s, flags=re.IGNORECASE)
+        s = re.sub(r"\s*```$", "", s)
+    return s.strip()
+
+
 # ── Pydantic Schema — Defines the expected AI output ─────────────────────────
 # 📚 Pydantic is a Python library for data validation using type hints.
 #    When we parse the AI's JSON response with this model, Pydantic:

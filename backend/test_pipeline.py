@@ -77,9 +77,17 @@ def main():
     test_key = f"clip_{uuid.uuid4().hex}"
     print(f"Generated test API key: {test_key[:12]}… (tier: pro)")
 
-    print("\n--- Running Batch Status Route Diagnostic ---")
-    mock_batch = {"job_ids": [job_id, "non_existent_id"]}
-    print(f"Batch query payload for {len(mock_batch['job_ids'])} job IDs verified!")
+    print("\n--- Running Technical Benchmark Diagnostic ---")
+    from backend.src.music_detector import _compute_spectral_centroid
+    from backend.src.gemini_analyzer import _compute_cosine_similarity
+    from backend.main import verify_api_key_signature, API_SECRET_SALT
+    import hmac, hashlib
+
+    sc = _compute_spectral_centroid([1.0, 2.0, 1.0], [100.0, 200.0, 300.0])
+    cos = _compute_cosine_similarity([1.0, 0.0], [1.0, 0.0])
+    test_sig = hmac.new(API_SECRET_SALT.encode(), test_key.encode(), hashlib.sha256).hexdigest()
+    verified = verify_api_key_signature(test_key, test_sig)
+    print(f"  Spectral Centroid: {sc:.1f} Hz | Cosine Sim: {cos:.1f} | HMAC Validated: {verified}")
 
     print("\nAnalysis Result:")
     import json

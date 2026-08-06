@@ -754,6 +754,18 @@ async def get_shared_result(token: str):
 
 
 # ── Developer API Keys & Monetization ──────────────────────────────────────────
+import hmac
+import hashlib
+
+API_SECRET_SALT = "clipinsight_sec_salt_2026"
+
+
+def verify_api_key_signature(api_key: str, signature: str) -> bool:
+    """Verify cryptographic HMAC-SHA256 signature for incoming developer key."""
+    expected = hmac.new(API_SECRET_SALT.encode(), api_key.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
 api_keys_db: dict[str, dict] = {}
 
 

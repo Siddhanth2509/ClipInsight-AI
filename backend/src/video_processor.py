@@ -17,8 +17,31 @@ KEY FIX for Windows [Errno 22] — "Invalid argument":
 """
 import re
 import yt_dlp
+import time
+import random
+import functools
 from pathlib import Path
 from backend.src.config import TEMP_DIR, MAX_VIDEO_SIZE_MB
+
+
+def retry_with_exponential_backoff(max_retries: int = 3, base_delay: float = 1.0, max_delay: float = 10.0):
+    """Decorator applying exponential backoff with full jitter for network resilience."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    retries += 1
+                    if retries > max_retries:
+                        raise e
+                    sleep_time = min(max_delay, base_delay * (2 ** (retries - 1)))
+                    jittered_sleep = random.uniform(0, sleep_time)
+                    time.sleep(jittered_sleep)
+        return wrapper
+    return decorator
 
 
 def is_valid_url(url: str) -> bool:

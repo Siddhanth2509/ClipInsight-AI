@@ -211,8 +211,8 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
     doc = SimpleDocTemplate(
         buf,
         pagesize=A4,
-        leftMargin=2.5*cm, rightMargin=2.5*cm,
-        topMargin=2.5*cm,  bottomMargin=2.5*cm,
+        leftMargin=2.0*cm, rightMargin=2.0*cm,
+        topMargin=2.0*cm,  bottomMargin=2.0*cm,
         title="ClipInsight AI Analysis Report",
         author="ClipInsight AI",
     )

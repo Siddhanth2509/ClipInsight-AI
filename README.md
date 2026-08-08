@@ -212,6 +212,8 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 - **FFT Spectral Centroid Analysis**: Acoustic feature extraction computing spectral mass centers for pitch discrimination in background music identification.
 - **Vector Cosine Similarity**: High-dimensional feature vector similarity matrix calculation ($\frac{A \cdot B}{\|A\| \|B\|}$) for visual topic clustering.
 - **Cryptographic Key Authentication**: HMAC-SHA256 signature token verification for developer API key validation.
+- **Content-Type Middleware Validation**: Automatic application/json header enforcement on incoming state mutation requests.
+- **Optimized PDF Typography Metrics**: Compact 2.0cm ReportLab margins and dynamic multi-page document pagination.
 
 ---
 

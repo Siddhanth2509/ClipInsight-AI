@@ -41,7 +41,22 @@ def retry_with_exponential_backoff(max_retries: int = 3, base_delay: float = 1.0
                     jittered_sleep = random.uniform(0, sleep_time)
                     time.sleep(jittered_sleep)
         return wrapper
-    return decorator
+def normalize_audio_volume(audio_path: Path | str) -> bool:
+    """Normalize WAV audio track volume using EBU R128 loudnorm filter via ffmpeg."""
+    import subprocess
+    path = str(audio_path)
+    out_path = path.replace(".wav", "_norm.wav")
+    cmd = [
+        "ffmpeg", "-y", "-i", path,
+        "-af", "loudnorm=I=-16:LRA=11:TP=-1.5",
+        "-ar", "16000", "-ac", "1",
+        out_path
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        return True
+    except Exception:
+        return False
 
 
 def is_valid_url(url: str) -> bool:

@@ -214,6 +214,7 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 - **Cryptographic Key Authentication**: HMAC-SHA256 signature token verification for developer API key validation.
 - **Content-Type Middleware Validation**: Automatic application/json header enforcement on incoming state mutation requests.
 - **Optimized PDF Typography Metrics**: Compact 2.0cm ReportLab margins and dynamic multi-page document pagination.
+- **EBU R128 Loudnorm Audio Normalization**: FFmpeg integrated audio volume normalization (`normalize_audio_volume`) maintaining consistent target loudness (-16 LUFS) prior to speech transcription.
 
 ---
 

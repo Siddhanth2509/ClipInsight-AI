@@ -1931,3 +1931,7 @@ html[data-theme="ice-white"] .gradient-text {
   transform: scale(1.02);
 }
 
+.shadow-glow {
+  box-shadow: 0 10px 30px rgba(124, 92, 252, 0.25), 0 0 10px rgba(61, 217, 255, 0.15) !important;
+}
+

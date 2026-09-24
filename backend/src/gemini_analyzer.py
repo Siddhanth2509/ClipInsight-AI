@@ -224,9 +224,9 @@ def _build_prompt(transcript: str, frame_count: int, duration: float, metadata: 
     metadata_section = ""
     if metadata:
         metadata_section += "VIDEO METADATA:\n"
-        metadata_section += f"Title: {metadata.get('title', '')}\n"
-        metadata_section += f"Description: {metadata.get('description', '')}\n"
-        metadata_section += f"Uploader: {metadata.get('uploader', '')}\n\n"
+        metadata_section += f"Title: {str(metadata.get('title', ''))[:200]}\n"
+        metadata_section += f"Description: {str(metadata.get('description', ''))[:400]}\n"
+        metadata_section += f"Uploader: {str(metadata.get('uploader', ''))[:100]}\n\n"
 
         comments = metadata.get("comments") or []
         if comments:

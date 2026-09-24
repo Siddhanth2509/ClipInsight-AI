@@ -89,7 +89,8 @@ def main():
     verified = verify_api_key_signature(test_key, test_sig)
     print(f"  Spectral Centroid: {sc:.1f} Hz | Cosine Sim: {cos:.1f} | HMAC Validated: {verified}")
     from backend.src.video_processor import normalize_audio_volume
-    print(f"  FFmpeg EBU R128 Loudnorm: AVAILABLE")
+    from backend.src.frame_extractor import _extract_frames_ffmpeg_fallback
+    print(f"  FFmpeg EBU R128 Loudnorm: AVAILABLE | FFmpeg Keyframe Fallback: LOADED")
 
     print("\nAnalysis Result:")
     import json

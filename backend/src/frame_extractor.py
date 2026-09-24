@@ -36,6 +36,26 @@ from typing import List
 from backend.src.config import TEMP_DIR, FRAME_SAMPLE_RATE
 
 
+def _extract_frames_ffmpeg_fallback(video_path: Path, frames_dir: Path, sample_rate: float) -> List[dict]:
+    """Fallback keyframe extraction using FFmpeg CLI for corrupted OpenCV streams."""
+    import subprocess
+    cmd = [
+        "ffmpeg", "-y", "-i", str(video_path),
+        "-vf", f"fps=1/{sample_rate}",
+        "-q:v", "2",
+        str(frames_dir / "frame_%03d.jpg")
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        files = sorted(frames_dir.glob("frame_*.jpg"))
+        return [
+            {"path": str(f.relative_to(TEMP_DIR)), "timestamp": i * sample_rate, "index": i}
+            for i, f in enumerate(files)
+        ]
+    except Exception:
+        return []
+
+
 # ── Tuning Constants ──────────────────────────────────────────────────────────
 # How many seconds between each candidate frame
 SAMPLE_EVERY_N_SECONDS: int = FRAME_SAMPLE_RATE   # default: 2 seconds

@@ -41,6 +41,7 @@ def detect_music_from_video(video_path, progress_callback=None) -> dict:
     log("Extracting audio snippet for music identification…")
     
     def _extract_and_recognize(start_sec: float = 3.0) -> dict:
+        log(f"Querying Shazam database via WASM engine (offset {start_sec:.1f}s)…")
         tmp_wav = None
         try:
             tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)

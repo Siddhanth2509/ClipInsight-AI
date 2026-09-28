@@ -55,8 +55,14 @@ def normalize_audio_volume(audio_path: Path | str) -> bool:
     try:
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         return True
-    except Exception:
-        return False
+def sanitize_video_url(url: str) -> str:
+    """Sanitize video URL by stripping tracking query parameters (utm_*, stkn, etc.)."""
+    from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
+    parsed = urlparse(url.strip())
+    qs = parse_qs(parsed.query)
+    clean_qs = {k: v for k, v in qs.items() if not (k.startswith("utm_") or k in ["stkn", "igsh"])}
+    clean_query = urlencode(clean_qs, doseq=True)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, clean_query, parsed.fragment))
 
 
 def is_valid_url(url: str) -> bool:

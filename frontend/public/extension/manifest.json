@@ -20,5 +20,13 @@
       ],
       "js": ["content.js"]
     }
-  ]
+  ],
+  "commands": {
+    "analyze_current_video": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "Analyze currently active video reel"
+    }
+  }
 }

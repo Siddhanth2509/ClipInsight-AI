@@ -98,6 +98,7 @@ input, textarea { cursor: none; }
   --glow-4-dim: rgba(255, 182, 193, 0.02);
 
   --grid-color: rgba(124, 92, 252, 0.03);
+  --blur-card: 12px;
 }
 
 /* ── 2. Ocean Blue Theme (deep navy-teal) ── */

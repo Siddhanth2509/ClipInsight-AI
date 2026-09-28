@@ -91,6 +91,7 @@ def main():
     from backend.src.video_processor import normalize_audio_volume
     from backend.src.frame_extractor import _extract_frames_ffmpeg_fallback
     print(f"  FFmpeg EBU R128 Loudnorm: AVAILABLE | FFmpeg Keyframe Fallback: LOADED")
+    print(f"  Whisper VAD Silence Threshold: 0.6")
 
     print("\nAnalysis Result:")
     import json

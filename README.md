@@ -215,6 +215,8 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 - **Content-Type Middleware Validation**: Automatic application/json header enforcement on incoming state mutation requests.
 - **Optimized PDF Typography Metrics**: Compact 2.0cm ReportLab margins and dynamic multi-page document pagination.
 - **EBU R128 Loudnorm Audio Normalization**: FFmpeg integrated audio volume normalization (`normalize_audio_volume`) maintaining consistent target loudness (-16 LUFS) prior to speech transcription.
+- **URL Query Parameter Sanitizer**: Automatic stripping of tracking tokens (`utm_*`, `stkn`, `igsh`) from incoming reel links (`sanitize_video_url`).
+- **Whisper VAD Silence Tuning**: Calibrated `no_speech_threshold=0.6` Voice Activity Detection parameter for silent reel segments.
 
 ---
 

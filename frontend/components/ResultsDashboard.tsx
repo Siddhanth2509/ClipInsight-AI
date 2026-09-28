@@ -52,6 +52,7 @@ function ConfidenceRadar({ scores }: { scores: Record<string, number> }) {
         stroke="var(--purple, #7C5CFC)"
         strokeWidth="2"
         strokeLinejoin="round"
+        filter="drop-shadow(0 0 4px rgba(124,92,252,0.6))"
       />
       {/* Data points */}
       {dataPoints.map(([x, y], i) => (

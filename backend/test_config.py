@@ -12,7 +12,8 @@ print(f"  GEMINI_API_KEY:  {'SET (' + str(len(GEMINI_API_KEY)) + ' chars)' if GE
 print(f"  SAKANA_API_KEY:  {'SET (' + str(len(SAKANA_API_KEY)) + ' chars)' if SAKANA_API_KEY else 'NOT SET'}")
 print(f"  MINIMAX_API_KEY: {'SET (' + str(len(MINIMAX_API_KEY)) + ' chars)' if MINIMAX_API_KEY else 'NOT SET'}")
 print(f"  WHISPER_MODEL:   {WHISPER_MODEL}")
-from backend.src.video_processor import detect_frame_blur, retry_with_exponential_backoff
+from backend.src.video_processor import detect_frame_blur, retry_with_exponential_backoff, sanitize_video_url
 print(f"  BLUR FILTERING:   ENABLED (threshold=100.0)")
 print(f"  RETRY DECORATOR:  ENABLED (full jitter backoff)")
+print(f"  URL SANITIZER:    ENABLED (utm/stkn strip)")
 print("\nAll config checks and imports successful!")

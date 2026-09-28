@@ -102,6 +102,11 @@ def parse_tiktok_video_id(url: str) -> str:
     return match.group(1) if match else ""
 
 
+def validate_video_dimensions(width: int, height: int) -> bool:
+    """Validate video dimensions are within safe operational limits (min 120px, max 4000px)."""
+    return (120 <= width <= 4000) and (120 <= height <= 4000)
+
+
 def detect_frame_blur(frame_path: Path | str, threshold: float = 100.0) -> bool:
     """Compute Laplacian variance of a image frame to detect motion blur."""
     import cv2

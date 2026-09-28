@@ -140,6 +140,19 @@ def _log(job_id: str, msg: str):
         print(f"[{job_id[:8]}] {msg}")  # Also log to console for debugging
 
 
+def _serialize_job_summary(job_id: str) -> dict:
+    """Return a clean JSON-serializable summary of a job."""
+    if job_id not in jobs:
+        return {"job_id": job_id, "status": "not_found"}
+    j = jobs[job_id]
+    return {
+        "job_id": job_id,
+        "status": j.get("status"),
+        "progress_count": len(j.get("progress", [])),
+        "has_result": j.get("result") is not None,
+    }
+
+
 def _cleanup_old_jobs(max_age_hours: int = 24):
     """Purge in-memory jobs older than max_age_hours to manage memory."""
     now = time.time()

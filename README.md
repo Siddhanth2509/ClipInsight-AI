@@ -217,6 +217,8 @@ We utilize a WebAssembly-based Shazam node recognition runner:
 - **EBU R128 Loudnorm Audio Normalization**: FFmpeg integrated audio volume normalization (`normalize_audio_volume`) maintaining consistent target loudness (-16 LUFS) prior to speech transcription.
 - **URL Query Parameter Sanitizer**: Automatic stripping of tracking tokens (`utm_*`, `stkn`, `igsh`) from incoming reel links (`sanitize_video_url`).
 - **Whisper VAD Silence Tuning**: Calibrated `no_speech_threshold=0.6` Voice Activity Detection parameter for silent reel segments.
+- **Video Dimension Validator**: Automatic checking of video resolution bounds (`validate_video_dimensions`) ensuring resolution safety.
+- **Response Latency SLA Headers**: `X-SLA-Status` response header indicating SLA status per API request.
 
 ---
 

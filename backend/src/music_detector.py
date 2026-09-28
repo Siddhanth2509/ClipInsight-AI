@@ -9,6 +9,9 @@ import os
 import json
 from pathlib import Path
 
+SHAZAM_WASM_TIMEOUT = 12  # Seconds timeout for WASM Node.js music identification
+
+
 def _compute_spectral_centroid(magnitudes: list[float], frequencies: list[float]) -> float:
     """Compute the spectral centroid (center of mass of spectrum) for pitch analysis."""
     total_mag = sum(magnitudes)

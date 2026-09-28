@@ -118,6 +118,12 @@ class VideoAnalysis(BaseModel):
         default_factory=list,
         description="5-10 hashtag-ready keywords (without the # symbol)."
     )
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, v):
+        """Strip leading # symbols from tags."""
+        return [tag.lstrip("#").strip() for tag in v if tag and tag.strip()]
     sentiment: str = Field(
         default="Neutral",
         description="Overall emotional tone: Positive, Neutral, or Negative."

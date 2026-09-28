@@ -202,7 +202,7 @@ def transcribe_audio(
         word_timestamps=False,       # Word-level timing (slower, not needed now)
         condition_on_previous_text=True,  # Use context for better accuracy
         temperature=0,               # 0 = greedy decoding (most likely token)
-                                     # Higher values introduce randomness
+        no_speech_threshold=0.6,     # VAD silence threshold tuning
     )
 
     # ── Build our structured output ───────────────────────────────────────────

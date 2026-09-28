@@ -224,7 +224,7 @@ def generate_pdf_report(result: dict, theme: str = "purple") -> bytes:
                          spaceAfter=4, spaceBefore=0, leading=32,
                          fontName="Helvetica-Bold")
     h2 = ParagraphStyle("H2", fontSize=14, textColor=c_accent,
-                         spaceAfter=6, spaceBefore=14, leading=18,
+                         spaceAfter=6, spaceBefore=12, leading=18,
                          fontName="Helvetica-Bold")
     body = ParagraphStyle("Body", fontSize=10, textColor=c_text,
                            spaceAfter=6, leading=15, fontName="Helvetica")
